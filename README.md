@@ -46,6 +46,13 @@ sudo ./nw-server -listen 127.0.0.1:8443 \
 ```bash
 cd go
 sudo ./nw-client -cacert ../certs/server.crt
+
+sudo ./nw-client \
+  -server new-world-kr-01.2fish.com.cn:8443 \
+  -cacert ../certs/server.crt \
+  -split-default \
+  -china-routes ../configs/china_ipv4.txt \
+  -extra-direct-routes ../configs/extra_direct_ipv4.txt
 ```
 
 ### 远程一键部署（`scripts/deploy-nw-server.sh`）
@@ -69,7 +76,7 @@ bash scripts/deploy-nw-server.sh
 | 组件 | 常用参数 |
 |------|-----------|
 | `nw-server` | `-auth-file`、`-client-ca`、`-tun-cidr`、`-ifname` |
-| `nw-client` | `-auth-file`、`-split-default`、`-insecure`（仅调试） |
+| `nw-client` | `-auth-file`、`-split-default`、`-china-routes`（与 split 配合：国内 IPv4 CIDR 直连）、`-extra-direct-routes`（可选补丁表，和 china-routes 合并）、`-insecure`（仅调试） |
 
 **单元测试**：
 
@@ -170,6 +177,8 @@ gradle assembleDebug
 |------|------|
 | `scripts/gen-certs.sh` | 生成本地自签服务端/客户端证书 |
 | `scripts/deploy-nw-server.sh` | SSH 部署远程 `nw-server`（检查/安装 Go、同步、编译、后台启动） |
+| `scripts/fetch-china-routes.sh` | 更新 `china_ipv4.txt`（CN）与 `extra_direct_ipv4.txt`（HK+MO） |
+| `scripts/update-extra-direct-from-domains.sh` | 用国内 DNS 解析 `configs/direct_domains.txt`，将 A 记录 `/32` 合并进 `extra_direct_ipv4.txt` |
 | `docs/server-deploy.md` | 服务端部署、NAT、systemd、认证 |
 | `docs/signing-and-ops.md` | 签名、Network Extension、Wintun、排障 |
 | `docs/protocol-v1.md` | 帧协议 v1 |

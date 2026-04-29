@@ -19,3 +19,5 @@ func ConfigureClientPointToPoint(ifName, clientIP, serverIP string) error {
 func AddSplitDefaultRoutes(ifName string) error {
 	return fmt.Errorf("AddSplitDefaultRoutes: not implemented on this GOOS")
 }
+
+func RemoveSplitDefaultRoutes(ifName string) {}

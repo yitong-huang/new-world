@@ -31,6 +31,13 @@ func AddSplitDefaultRoutes(ifName string) error {
 	return nil
 }
 
+// RemoveSplitDefaultRoutes removes split-default routes added by AddSplitDefaultRoutes (best effort).
+func RemoveSplitDefaultRoutes(ifName string) {
+	for _, cidr := range []string{"0.0.0.0/1", "128.0.0.0/1"} {
+		_ = exec.Command("route", "delete", "-net", cidr, "-interface", ifName).Run()
+	}
+}
+
 // AddBypassRouteForVPNServer adds a host route so TLS to the VPN server stays on the physical default path.
 // Must be called before AddSplitDefaultRoutes. Returned cleanup removes the host route (best effort).
 func AddBypassRouteForVPNServer(ip net.IP) (cleanup func(), err error) {

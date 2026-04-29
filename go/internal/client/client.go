@@ -23,9 +23,13 @@ import (
 func Run(ctx context.Context, log *slog.Logger, tlsCfg *tls.Config, serverAddr string, tunName string, tunReadWriter interface {
 	io.Reader
 	io.Writer
-}, authUser, authPass string, setup func(ifName, clientIP, serverIP string) error, splitDefault func(ifName string) error, tunRelease func()) error {
+}, authUser, authPass string, setup func(ifName, clientIP, serverIP string) error, splitDefault func(ifName string) (cleanup func(), err error), tunRelease func()) error {
 	var bypassCleanup func()
+	var splitCleanup func()
 	defer func() {
+		if splitCleanup != nil {
+			splitCleanup()
+		}
 		if bypassCleanup != nil {
 			bypassCleanup()
 		}
@@ -108,8 +112,10 @@ func Run(ctx context.Context, log *slog.Logger, tlsCfg *tls.Config, serverAddr s
 				}
 			}
 		}
-		if err := splitDefault(tunName); err != nil {
-			return err
+		var errSplit error
+		splitCleanup, errSplit = splitDefault(tunName)
+		if errSplit != nil {
+			return errSplit
 		}
 	}
 

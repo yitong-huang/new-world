@@ -48,7 +48,7 @@ sudo ./nw-server -listen 0.0.0.0:8443 -cert ../certs/server.crt -key ../certs/se
 
 ## NAT 与转发
 
-客户端使用 **`-split-default`** 时，IPv4 流量会进隧道；服务端必须把虚拟网段 **SNAT/MASQUERADE** 到公网口，否则无法上网。
+客户端使用 **`-split-default`** 时，IPv4 流量会进隧道；服务端必须把虚拟网段 **SNAT/MASQUERADE** 到公网口，否则无法上网。若同时使用 **`-china-routes <文件>`**（与 `-split-default` 配合），客户端会为文件中的 IPv4 CIDR 添加经物理网关的**更具体路由**，使这部分流量**不进隧道**（常见：国内直连、境外走 VPN）；列表需自行维护或从社区 china_ip / chnroutes 源更新。
 
 **一键命令（在服务器上以 root 执行；自动取默认路由出网网卡）**：
 

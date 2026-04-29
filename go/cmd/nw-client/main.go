@@ -22,10 +22,37 @@ func main() {
 	insecure := flag.Bool("insecure", false, "skip TLS verification (dev only)")
 	ifname := flag.String("ifname", "", "TUN name hint (unix); ignored on Windows Wintun")
 	split := flag.Bool("split-default", false, "add 0.0.0.0/1 and 128.0.0.0/1 via tunnel (Linux/Darwin)")
+	chinaRoutes := flag.String("china-routes", "", "IPv4 CIDR list file: with -split-default, add those nets via physical gateway (domestic direct); Linux/macOS only")
+	extraDirectRoutes := flag.String("extra-direct-routes", "", "optional extra IPv4 CIDR list file merged with -china-routes (for patch overrides)")
 	authFile := flag.String("auth-file", "", "JSON with username/password (configs/auth.client.example.json); if set, sent after ClientHello")
 	flag.Parse()
 
 	log := slog.New(slog.NewTextHandler(os.Stderr, &slog.HandlerOptions{Level: slog.LevelInfo}))
+
+	if *chinaRoutes != "" && !*split {
+		log.Error("-china-routes requires -split-default")
+		os.Exit(1)
+	}
+	if *extraDirectRoutes != "" && !*split {
+		log.Error("-extra-direct-routes requires -split-default")
+		os.Exit(1)
+	}
+	if *extraDirectRoutes != "" && *chinaRoutes == "" {
+		log.Error("-extra-direct-routes requires -china-routes")
+		os.Exit(1)
+	}
+	if *chinaRoutes != "" {
+		if _, err := os.Stat(*chinaRoutes); err != nil {
+			log.Error("china-routes file", "path", *chinaRoutes, "err", err)
+			os.Exit(1)
+		}
+	}
+	if *extraDirectRoutes != "" {
+		if _, err := os.Stat(*extraDirectRoutes); err != nil {
+			log.Error("extra-direct-routes file", "path", *extraDirectRoutes, "err", err)
+			os.Exit(1)
+		}
+	}
 
 	tlsCfg := &tls.Config{MinVersion: tls.VersionTLS13}
 	if *insecure {
@@ -74,9 +101,20 @@ func main() {
 	setup := func(ifn, clientIP, serverIP string) error {
 		return tuntap.ConfigureClientPointToPoint(ifn, clientIP, serverIP)
 	}
-	var splitFn func(string) error
+	var splitFn func(string) (func(), error)
 	if *split {
-		splitFn = tuntap.AddSplitDefaultRoutes
+		if *chinaRoutes != "" {
+			splitFn = func(ifName string) (func(), error) {
+				return tuntap.SetupSplitDefaultWithChina(log, ifName, *chinaRoutes, *extraDirectRoutes)
+			}
+		} else {
+			splitFn = func(ifName string) (func(), error) {
+				if err := tuntap.AddSplitDefaultRoutes(ifName); err != nil {
+					return nil, err
+				}
+				return func() { tuntap.RemoveSplitDefaultRoutes(ifName) }, nil
+			}
+		}
 	}
 
 	authUser, authPass := "", ""

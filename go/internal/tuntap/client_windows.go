@@ -16,6 +16,9 @@ func ConfigureClientPointToPoint(_ ifName, _ clientIP, _ serverIP string) error 
 }
 
 // AddSplitDefaultRoutes is not automated on Windows in this repo; add routes manually if needed.
-func AddSplitDefaultRoutes(_ ifName string) error {
+func AddSplitDefaultRoutes(_ string) error {
 	return nil
 }
+
+// RemoveSplitDefaultRoutes is a no-op on Windows.
+func RemoveSplitDefaultRoutes(_ string) {}

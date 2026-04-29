@@ -39,6 +39,13 @@ func AddSplitDefaultRoutes(ifName string) error {
 	return nil
 }
 
+// RemoveSplitDefaultRoutes removes split-default routes (best effort).
+func RemoveSplitDefaultRoutes(ifName string) {
+	for _, cidr := range []string{"0.0.0.0/1", "128.0.0.0/1"} {
+		_ = exec.Command("ip", "route", "del", cidr, "dev", ifName).Run()
+	}
+}
+
 // AddBypassRouteForVPNServer adds /32 via default gateway dev so TLS to the server is not pulled into TUN.
 // Must be called before AddSplitDefaultRoutes.
 func AddBypassRouteForVPNServer(ip net.IP) (cleanup func(), err error) {

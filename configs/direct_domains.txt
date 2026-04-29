@@ -1,0 +1,7 @@
+# 需要优先直连的域名列表（每行一个域名）
+# 脚本：scripts/update-extra-direct-from-domains.sh
+
+www.baidu.com
+www.bilibili.com
+www.zhihu.com
+www.taobao.com
