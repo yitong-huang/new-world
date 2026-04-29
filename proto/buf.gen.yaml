@@ -1,0 +1,7 @@
+version: v1
+plugins:
+  - plugin: go
+    out: ../go/proto/gen
+    opt:
+      - paths=source_relative
+  # Swift / Kotlin 生成需在本地安装 buf 与相应插件后执行；仓库以文档+golden 为准。

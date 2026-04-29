@@ -1,0 +1,41 @@
+syntax = "proto3";
+
+package newworld.vpn.v1;
+
+option go_package = "github.com/newworld/nw/proto/gen;nwv1";
+
+// 逻辑消息定义；线格式仍以 docs/protocol-v1.md 的二进制布局为准。
+
+message ClientHello {
+  uint32 mtu = 1;
+  uint32 caps = 2;
+}
+
+message ServerHello {
+  uint32 mtu = 1;
+  uint32 caps = 2;
+}
+
+message AssignTunnel {
+  bytes ipv4 = 1;  // 4 bytes
+  repeated bytes dns_v4 = 2;  // each 4 bytes
+  uint32 flags = 3;
+}
+
+message Keepalive {}
+
+message Error {
+  uint32 code = 1;
+  string message = 2;
+}
+
+message Disconnect {
+  uint32 reason = 1;
+  string message = 2;
+}
+
+// Wire format uses msg_type=8; see docs/protocol-v1.md for binary layout.
+message AuthCredentials {
+  string username = 1;
+  string password = 2;
+}

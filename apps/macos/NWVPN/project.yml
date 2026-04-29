@@ -1,0 +1,45 @@
+name: NWVPN
+options:
+  bundleIdPrefix: com.newworld
+  deploymentTarget:
+    macOS: "13.0"
+settings:
+  base:
+    MARKETING_VERSION: "1.0"
+    CURRENT_PROJECT_VERSION: "1"
+    SWIFT_VERSION: "5.0"
+    MACOSX_DEPLOYMENT_TARGET: "13.0"
+
+targets:
+  NWVPN:
+    type: application
+    platform: macOS
+    sources:
+      - path: App
+    settings:
+      base:
+        PRODUCT_BUNDLE_IDENTIFIER: com.newworld.NWVPN
+        CODE_SIGN_ENTITLEMENTS: App/NWVPN.entitlements
+        ENABLE_HARDENED_RUNTIME: true
+        GENERATE_INFOPLIST_FILE: true
+        INFOPLIST_KEY_CFBundleDisplayName: NewWorld VPN
+        INFOPLIST_KEY_LSApplicationCategoryType: public.app-category.utilities
+    entitlements:
+      path: App/NWVPN.entitlements
+    dependencies:
+      - target: NWVPNPacketTunnel
+        embed: true
+
+  NWVPNPacketTunnel:
+    type: app-extension
+    platform: macOS
+    sources:
+      - path: Extension
+    settings:
+      base:
+        PRODUCT_BUNDLE_IDENTIFIER: com.newworld.NWVPN.PacketTunnel
+        CODE_SIGN_ENTITLEMENTS: Extension/PacketTunnel.entitlements
+        INFOPLIST_FILE: Extension/Info.plist
+        LD_RUNPATH_SEARCH_PATHS: "$(inherited) @executable_path/../Frameworks @executable_path/../../../../Frameworks"
+    entitlements:
+      path: Extension/PacketTunnel.entitlements

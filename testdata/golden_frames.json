@@ -1,0 +1,43 @@
+{
+  "version": 1,
+  "description": "Cross-language parity: decode hex to frame and compare type + payload fields.",
+  "frames": [
+    {
+      "name": "client_hello_default",
+      "hex": "4e5730310001010000000006057800000000",
+      "expect": { "msg_type": 1, "client_hello": { "mtu": 1400, "caps": 0 } }
+    },
+    {
+      "name": "server_hello",
+      "hex": "4e5730310001020000000006057800000000",
+      "expect": { "msg_type": 2, "server_hello": { "mtu": 1400, "caps": 0 } }
+    },
+    {
+      "name": "assign_tunnel",
+      "hex": "4e573031000103000000000a0a4d0002010808080801",
+      "expect": {
+        "msg_type": 3,
+        "assign_tunnel": {
+          "ipv4": "10.77.0.2",
+          "dns": ["8.8.8.8"],
+          "flags": 1
+        }
+      }
+    },
+    {
+      "name": "keepalive_empty",
+      "hex": "4e5730310001050000000000",
+      "expect": { "msg_type": 5 }
+    },
+    {
+      "name": "error_simple",
+      "hex": "4e573031000106000000000700010003626164",
+      "expect": { "msg_type": 6, "error": { "code": 1, "msg": "bad" } }
+    },
+    {
+      "name": "disconnect",
+      "hex": "4e57303100010700000000060100036f6b6b",
+      "expect": { "msg_type": 7, "disconnect": { "reason": 1, "msg": "okk" } }
+    }
+  ]
+}

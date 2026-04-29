@@ -1,0 +1,50 @@
+# 证书与密钥（gen-certs 产出）
+certs/*.crt
+certs/*.key
+certs/*.srl
+certs/*.csr
+certs/*.pem
+
+# Windows 可执行文件
+*.exe
+
+# macOS
+.DS_Store
+
+# Go（本仓库 go/ 下常见本地编译产物）
+go/bin/
+go/nw-server
+go/nw-client
+*.test
+coverage.out
+coverage.html
+
+# Android
+android/.gradle/
+android/build/
+android/app/build/
+android/local.properties
+android/*.iml
+android/.idea/
+
+# IDE
+.idea/
+
+# Swift Package Manager
+.build/
+**/.build/
+apple/.build/
+simple-connect/.build/
+
+# Xcode：用户数据与状态
+**/xcuserdata/
+**/*.xcuserstate
+**/*.xcuserdatad/
+
+# XcodeGen 生成的工程（保留 project.yml，运行 xcodegen generate）
+apps/macos/NWVPN/NWVPN.xcodeproj/
+
+# 本地环境变量与密钥文件（勿提交真实配置）
+.env
+.env.*
+!.env.example
