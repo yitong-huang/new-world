@@ -74,7 +74,7 @@ bash scripts/deploy-nw-server.sh
 **可选参数**（摘录，完整见 `go/cmd` 内 `flag` 定义与 `docs/server-deploy.md`）：
 
 | 组件 | 常用参数 |
-|------|-----------|
+| ------ | ----------- |
 | `nw-server` | `-auth-file`、`-client-ca`、`-tun-cidr`、`-ifname` |
 | `nw-client` | `-auth-file`、`-split-default`、`-china-routes`（与 split 配合：国内 IPv4 CIDR 直连）、`-extra-direct-routes`（可选补丁表，和 china-routes 合并）、`-insecure`（仅调试） |
 
@@ -135,7 +135,20 @@ xcodebuild -scheme NWVPN -configuration Debug -destination 'platform=macOS' CODE
 
 ---
 
-## 5. Swift 包 `apple/`（协议库 + NWTunnel）
+## 5. iOS：Xcode 应用 `NWVPNiOS`（主应用 + Packet Tunnel）
+
+```bash
+brew install xcodegen   # 若未安装
+cd apps/ios/NWVPN
+xcodegen generate
+open NWVPNiOS.xcodeproj
+```
+
+说明与签名配置见 [`apps/ios/NWVPN/README.md`](apps/ios/NWVPN/README.md)。
+
+---
+
+## 6. Swift 包 `apple/`（协议库 + NWTunnel）
 
 ```bash
 cd apple
@@ -147,7 +160,7 @@ swift test
 
 ---
 
-## 6. Android
+## 7. Android
 
 本仓库 `android/` 为 Gradle Kotlin DSL 工程。若目录下尚无 `gradlew`，可用 Android Studio 打开 **`android`** 同步后构建，或在已安装 Gradle 的前提下于 `android/` 执行：
 
@@ -162,7 +175,7 @@ gradle assembleDebug
 
 ---
 
-## 7. 配置示例
+## 8. 配置示例
 
 - 服务端用户表：[`configs/auth.server.example.json`](configs/auth.server.example.json)  
 - 客户端凭据：[`configs/auth.client.example.json`](configs/auth.client.example.json)  
@@ -171,10 +184,10 @@ gradle assembleDebug
 
 ---
 
-## 8. 脚本与文档索引
+## 9. 脚本与文档索引
 
 | 路径 | 用途 |
-|------|------|
+| ------ | ------ |
 | `scripts/gen-certs.sh` | 生成本地自签服务端/客户端证书 |
 | `scripts/deploy-nw-server.sh` | SSH 部署远程 `nw-server`（检查/安装 Go、同步、编译、后台启动） |
 | `scripts/fetch-china-routes.sh` | 更新 `china_ipv4.txt`（CN）与 `extra_direct_ipv4.txt`（HK+MO） |
@@ -182,3 +195,20 @@ gradle assembleDebug
 | `docs/server-deploy.md` | 服务端部署、NAT、systemd、认证 |
 | `docs/signing-and-ops.md` | 签名、Network Extension、Wintun、排障 |
 | `docs/protocol-v1.md` | 帧协议 v1 |
+
+## 常用
+
+```bash
+# 1) 更新基础库（CN + HK/MO）
+bash scripts/fetch-china-routes.sh
+# 2) 根据你的常用域名补充 /32
+bash scripts/update-extra-direct-from-domains.sh
+# 3) 重启客户端加载新路由
+cd go
+sudo ./nw-client \
+  -server new-world-kr-01.2fish.com.cn:8443 \
+  -cacert ../certs/server.crt \
+  -split-default \
+  -china-routes ../configs/china_ipv4.txt \
+  -extra-direct-routes ../configs/extra_direct_ipv4.txt
+```

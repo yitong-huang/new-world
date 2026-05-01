@@ -1,0 +1,444 @@
+// !$*UTF8*$!
+{
+	archiveVersion = 1;
+	classes = {
+	};
+	objectVersion = 77;
+	objects = {
+
+/* Begin PBXBuildFile section */
+		0FE9C225614DEC7D0C4235DD /* NWVPNiOSPacketTunnel.appex in Embed Foundation Extensions */ = {isa = PBXBuildFile; fileRef = 19DED98C75DDCC49EA6B9CA0 /* NWVPNiOSPacketTunnel.appex */; settings = {ATTRIBUTES = (RemoveHeadersOnCopy, ); }; };
+		39638D365D7DD8C2DE152CCE /* Framing.swift in Sources */ = {isa = PBXBuildFile; fileRef = 823116858CDB39E124FD558B /* Framing.swift */; };
+		AB9A73937634E2A67E918550 /* PacketTunnelProvider.swift in Sources */ = {isa = PBXBuildFile; fileRef = 4AA59DCDDE4494FF0373863A /* PacketTunnelProvider.swift */; };
+		B3CEFE9C58B9F9116DC0EF36 /* ContentView.swift in Sources */ = {isa = PBXBuildFile; fileRef = D43E6531E3E6158B59A07B1B /* ContentView.swift */; };
+		BA2ADA6092243D4AAFA25B46 /* VPNManager.swift in Sources */ = {isa = PBXBuildFile; fileRef = 3BC103592C629B89B6DAD16E /* VPNManager.swift */; };
+		BECF95CDFAE87D9DAB1033C4 /* china_ipv4.txt in Resources */ = {isa = PBXBuildFile; fileRef = A6C4E4EF4DA5A5685D2BBA13 /* china_ipv4.txt */; };
+		C253166D24E6AAD7A000BFDA /* extra_direct_ipv4.txt in Resources */ = {isa = PBXBuildFile; fileRef = 2A3419039A42621EBC4BFFFF /* extra_direct_ipv4.txt */; };
+		D348A7FC574F6CE9B0A3535E /* NWVPNApp.swift in Sources */ = {isa = PBXBuildFile; fileRef = 05BA1F517D8BABBA07F10AC4 /* NWVPNApp.swift */; };
+/* End PBXBuildFile section */
+
+/* Begin PBXContainerItemProxy section */
+		217DF540B371EA5D97B34E9F /* PBXContainerItemProxy */ = {
+			isa = PBXContainerItemProxy;
+			containerPortal = 6A9FF86DC76F1188E27CBC94 /* Project object */;
+			proxyType = 1;
+			remoteGlobalIDString = EF97BB141CA36306C1D6393C;
+			remoteInfo = NWVPNiOSPacketTunnel;
+		};
+/* End PBXContainerItemProxy section */
+
+/* Begin PBXCopyFilesBuildPhase section */
+		657A8592C72A730C09ABBAFF /* Embed Foundation Extensions */ = {
+			isa = PBXCopyFilesBuildPhase;
+			buildActionMask = 2147483647;
+			dstPath = "";
+			dstSubfolderSpec = 13;
+			files = (
+				0FE9C225614DEC7D0C4235DD /* NWVPNiOSPacketTunnel.appex in Embed Foundation Extensions */,
+			);
+			name = "Embed Foundation Extensions";
+			runOnlyForDeploymentPostprocessing = 0;
+		};
+/* End PBXCopyFilesBuildPhase section */
+
+/* Begin PBXFileReference section */
+		05BA1F517D8BABBA07F10AC4 /* NWVPNApp.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = NWVPNApp.swift; sourceTree = "<group>"; };
+		19DED98C75DDCC49EA6B9CA0 /* NWVPNiOSPacketTunnel.appex */ = {isa = PBXFileReference; explicitFileType = "wrapper.app-extension"; includeInIndex = 0; path = NWVPNiOSPacketTunnel.appex; sourceTree = BUILT_PRODUCTS_DIR; };
+		2A3419039A42621EBC4BFFFF /* extra_direct_ipv4.txt */ = {isa = PBXFileReference; lastKnownFileType = text; path = extra_direct_ipv4.txt; sourceTree = "<group>"; };
+		3BC103592C629B89B6DAD16E /* VPNManager.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = VPNManager.swift; sourceTree = "<group>"; };
+		4AA59DCDDE4494FF0373863A /* PacketTunnelProvider.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = PacketTunnelProvider.swift; sourceTree = "<group>"; };
+		823116858CDB39E124FD558B /* Framing.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = Framing.swift; sourceTree = "<group>"; };
+		92590079FC9EE5A2BBA0E9A0 /* NWVPNiOS.app */ = {isa = PBXFileReference; explicitFileType = wrapper.application; includeInIndex = 0; path = NWVPNiOS.app; sourceTree = BUILT_PRODUCTS_DIR; };
+		9564C68153AEA02487C25485 /* PacketTunnel.entitlements */ = {isa = PBXFileReference; lastKnownFileType = text.plist.entitlements; path = PacketTunnel.entitlements; sourceTree = "<group>"; };
+		A6C4E4EF4DA5A5685D2BBA13 /* china_ipv4.txt */ = {isa = PBXFileReference; lastKnownFileType = text; path = china_ipv4.txt; sourceTree = "<group>"; };
+		AF518009836A9C9229C0ED23 /* NWVPN.entitlements */ = {isa = PBXFileReference; lastKnownFileType = text.plist.entitlements; path = NWVPN.entitlements; sourceTree = "<group>"; };
+		C550AB336FD3A2E94BA178A5 /* Info.plist */ = {isa = PBXFileReference; lastKnownFileType = text.plist; path = Info.plist; sourceTree = "<group>"; };
+		D43E6531E3E6158B59A07B1B /* ContentView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ContentView.swift; sourceTree = "<group>"; };
+/* End PBXFileReference section */
+
+/* Begin PBXGroup section */
+		06443BCB18251A0B0FDCCC15 /* Extension */ = {
+			isa = PBXGroup;
+			children = (
+				A6C4E4EF4DA5A5685D2BBA13 /* china_ipv4.txt */,
+				2A3419039A42621EBC4BFFFF /* extra_direct_ipv4.txt */,
+				823116858CDB39E124FD558B /* Framing.swift */,
+				C550AB336FD3A2E94BA178A5 /* Info.plist */,
+				9564C68153AEA02487C25485 /* PacketTunnel.entitlements */,
+				4AA59DCDDE4494FF0373863A /* PacketTunnelProvider.swift */,
+			);
+			path = Extension;
+			sourceTree = "<group>";
+		};
+		23EB0AD5908E450C078BFF36 = {
+			isa = PBXGroup;
+			children = (
+				268C37E7EFF5803BC2FBE26A /* App */,
+				06443BCB18251A0B0FDCCC15 /* Extension */,
+				C99C2ACAA2B9440F674A7010 /* Products */,
+			);
+			sourceTree = "<group>";
+		};
+		268C37E7EFF5803BC2FBE26A /* App */ = {
+			isa = PBXGroup;
+			children = (
+				D43E6531E3E6158B59A07B1B /* ContentView.swift */,
+				AF518009836A9C9229C0ED23 /* NWVPN.entitlements */,
+				05BA1F517D8BABBA07F10AC4 /* NWVPNApp.swift */,
+				3BC103592C629B89B6DAD16E /* VPNManager.swift */,
+			);
+			path = App;
+			sourceTree = "<group>";
+		};
+		C99C2ACAA2B9440F674A7010 /* Products */ = {
+			isa = PBXGroup;
+			children = (
+				92590079FC9EE5A2BBA0E9A0 /* NWVPNiOS.app */,
+				19DED98C75DDCC49EA6B9CA0 /* NWVPNiOSPacketTunnel.appex */,
+			);
+			name = Products;
+			sourceTree = "<group>";
+		};
+/* End PBXGroup section */
+
+/* Begin PBXNativeTarget section */
+		EF97BB141CA36306C1D6393C /* NWVPNiOSPacketTunnel */ = {
+			isa = PBXNativeTarget;
+			buildConfigurationList = 2F29B3646884B24778F9752C /* Build configuration list for PBXNativeTarget "NWVPNiOSPacketTunnel" */;
+			buildPhases = (
+				B7D67BDCC63FD2EF297D5C9E /* Sources */,
+				09917D07DE8C33CBE06C8B61 /* Resources */,
+			);
+			buildRules = (
+			);
+			dependencies = (
+			);
+			name = NWVPNiOSPacketTunnel;
+			packageProductDependencies = (
+			);
+			productName = NWVPNiOSPacketTunnel;
+			productReference = 19DED98C75DDCC49EA6B9CA0 /* NWVPNiOSPacketTunnel.appex */;
+			productType = "com.apple.product-type.app-extension";
+		};
+		F5F10176363EEA3EB18CF174 /* NWVPNiOS */ = {
+			isa = PBXNativeTarget;
+			buildConfigurationList = 8FAC79FE9C48A75550EBD84F /* Build configuration list for PBXNativeTarget "NWVPNiOS" */;
+			buildPhases = (
+				68F3161601390E143989EDE5 /* Sources */,
+				657A8592C72A730C09ABBAFF /* Embed Foundation Extensions */,
+			);
+			buildRules = (
+			);
+			dependencies = (
+				8051D698B90899EFD456A389 /* PBXTargetDependency */,
+			);
+			name = NWVPNiOS;
+			packageProductDependencies = (
+			);
+			productName = NWVPNiOS;
+			productReference = 92590079FC9EE5A2BBA0E9A0 /* NWVPNiOS.app */;
+			productType = "com.apple.product-type.application";
+		};
+/* End PBXNativeTarget section */
+
+/* Begin PBXProject section */
+		6A9FF86DC76F1188E27CBC94 /* Project object */ = {
+			isa = PBXProject;
+			attributes = {
+				BuildIndependentTargetsInParallel = YES;
+				LastUpgradeCheck = 1430;
+			};
+			buildConfigurationList = DF1589A06AA78BA944814432 /* Build configuration list for PBXProject "NWVPNiOS" */;
+			developmentRegion = en;
+			hasScannedForEncodings = 0;
+			knownRegions = (
+				Base,
+				en,
+			);
+			mainGroup = 23EB0AD5908E450C078BFF36;
+			minimizedProjectReferenceProxies = 1;
+			preferredProjectObjectVersion = 77;
+			productRefGroup = C99C2ACAA2B9440F674A7010 /* Products */;
+			projectDirPath = "";
+			projectRoot = "";
+			targets = (
+				F5F10176363EEA3EB18CF174 /* NWVPNiOS */,
+				EF97BB141CA36306C1D6393C /* NWVPNiOSPacketTunnel */,
+			);
+		};
+/* End PBXProject section */
+
+/* Begin PBXResourcesBuildPhase section */
+		09917D07DE8C33CBE06C8B61 /* Resources */ = {
+			isa = PBXResourcesBuildPhase;
+			buildActionMask = 2147483647;
+			files = (
+				BECF95CDFAE87D9DAB1033C4 /* china_ipv4.txt in Resources */,
+				C253166D24E6AAD7A000BFDA /* extra_direct_ipv4.txt in Resources */,
+			);
+			runOnlyForDeploymentPostprocessing = 0;
+		};
+/* End PBXResourcesBuildPhase section */
+
+/* Begin PBXSourcesBuildPhase section */
+		68F3161601390E143989EDE5 /* Sources */ = {
+			isa = PBXSourcesBuildPhase;
+			buildActionMask = 2147483647;
+			files = (
+				B3CEFE9C58B9F9116DC0EF36 /* ContentView.swift in Sources */,
+				D348A7FC574F6CE9B0A3535E /* NWVPNApp.swift in Sources */,
+				BA2ADA6092243D4AAFA25B46 /* VPNManager.swift in Sources */,
+			);
+			runOnlyForDeploymentPostprocessing = 0;
+		};
+		B7D67BDCC63FD2EF297D5C9E /* Sources */ = {
+			isa = PBXSourcesBuildPhase;
+			buildActionMask = 2147483647;
+			files = (
+				39638D365D7DD8C2DE152CCE /* Framing.swift in Sources */,
+				AB9A73937634E2A67E918550 /* PacketTunnelProvider.swift in Sources */,
+			);
+			runOnlyForDeploymentPostprocessing = 0;
+		};
+/* End PBXSourcesBuildPhase section */
+
+/* Begin PBXTargetDependency section */
+		8051D698B90899EFD456A389 /* PBXTargetDependency */ = {
+			isa = PBXTargetDependency;
+			target = EF97BB141CA36306C1D6393C /* NWVPNiOSPacketTunnel */;
+			targetProxy = 217DF540B371EA5D97B34E9F /* PBXContainerItemProxy */;
+		};
+/* End PBXTargetDependency section */
+
+/* Begin XCBuildConfiguration section */
+		1673740CFF94D4C5E191BBBA /* Release */ = {
+			isa = XCBuildConfiguration;
+			buildSettings = {
+				ALWAYS_SEARCH_USER_PATHS = NO;
+				CLANG_ANALYZER_NONNULL = YES;
+				CLANG_ANALYZER_NUMBER_OBJECT_CONVERSION = YES_AGGRESSIVE;
+				CLANG_CXX_LANGUAGE_STANDARD = "gnu++14";
+				CLANG_CXX_LIBRARY = "libc++";
+				CLANG_ENABLE_MODULES = YES;
+				CLANG_ENABLE_OBJC_ARC = YES;
+				CLANG_ENABLE_OBJC_WEAK = YES;
+				CLANG_WARN_BLOCK_CAPTURE_AUTORELEASING = YES;
+				CLANG_WARN_BOOL_CONVERSION = YES;
+				CLANG_WARN_COMMA = YES;
+				CLANG_WARN_CONSTANT_CONVERSION = YES;
+				CLANG_WARN_DEPRECATED_OBJC_IMPLEMENTATIONS = YES;
+				CLANG_WARN_DIRECT_OBJC_ISA_USAGE = YES_ERROR;
+				CLANG_WARN_DOCUMENTATION_COMMENTS = YES;
+				CLANG_WARN_EMPTY_BODY = YES;
+				CLANG_WARN_ENUM_CONVERSION = YES;
+				CLANG_WARN_INFINITE_RECURSION = YES;
+				CLANG_WARN_INT_CONVERSION = YES;
+				CLANG_WARN_NON_LITERAL_NULL_CONVERSION = YES;
+				CLANG_WARN_OBJC_IMPLICIT_RETAIN_SELF = YES;
+				CLANG_WARN_OBJC_LITERAL_CONVERSION = YES;
+				CLANG_WARN_OBJC_ROOT_CLASS = YES_ERROR;
+				CLANG_WARN_QUOTED_INCLUDE_IN_FRAMEWORK_HEADER = YES;
+				CLANG_WARN_RANGE_LOOP_ANALYSIS = YES;
+				CLANG_WARN_STRICT_PROTOTYPES = YES;
+				CLANG_WARN_SUSPICIOUS_MOVE = YES;
+				CLANG_WARN_UNGUARDED_AVAILABILITY = YES_AGGRESSIVE;
+				CLANG_WARN_UNREACHABLE_CODE = YES;
+				CLANG_WARN__DUPLICATE_METHOD_MATCH = YES;
+				COPY_PHASE_STRIP = NO;
+				CURRENT_PROJECT_VERSION = 1;
+				DEBUG_INFORMATION_FORMAT = "dwarf-with-dsym";
+				ENABLE_NS_ASSERTIONS = NO;
+				ENABLE_STRICT_OBJC_MSGSEND = YES;
+				GCC_C_LANGUAGE_STANDARD = gnu11;
+				GCC_NO_COMMON_BLOCKS = YES;
+				GCC_WARN_64_TO_32_BIT_CONVERSION = YES;
+				GCC_WARN_ABOUT_RETURN_TYPE = YES_ERROR;
+				GCC_WARN_UNDECLARED_SELECTOR = YES;
+				GCC_WARN_UNINITIALIZED_AUTOS = YES_AGGRESSIVE;
+				GCC_WARN_UNUSED_FUNCTION = YES;
+				GCC_WARN_UNUSED_VARIABLE = YES;
+				IPHONEOS_DEPLOYMENT_TARGET = 16.0;
+				MARKETING_VERSION = 1.0;
+				MTL_ENABLE_DEBUG_INFO = NO;
+				MTL_FAST_MATH = YES;
+				PRODUCT_NAME = "$(TARGET_NAME)";
+				SDKROOT = iphoneos;
+				SWIFT_COMPILATION_MODE = wholemodule;
+				SWIFT_OPTIMIZATION_LEVEL = "-O";
+				SWIFT_VERSION = 5.0;
+			};
+			name = Release;
+		};
+		2B96CDBC35CFAE8E60E738C2 /* Debug */ = {
+			isa = XCBuildConfiguration;
+			buildSettings = {
+				ASSETCATALOG_COMPILER_APPICON_NAME = AppIcon;
+				CODE_SIGN_ENTITLEMENTS = App/NWVPN.entitlements;
+				CODE_SIGN_IDENTITY = "iPhone Developer";
+				DEVELOPMENT_TEAM = LG68MXT252;
+				GENERATE_INFOPLIST_FILE = YES;
+				INFOPLIST_KEY_CFBundleDisplayName = "NewWorld VPN";
+				INFOPLIST_KEY_UISupportedInterfaceOrientations_iPhone = UIInterfaceOrientationPortrait;
+				LD_RUNPATH_SEARCH_PATHS = (
+					"$(inherited)",
+					"@executable_path/Frameworks",
+				);
+				PRODUCT_BUNDLE_IDENTIFIER = com.newworld.NWVPNiOS;
+				SDKROOT = iphoneos;
+				TARGETED_DEVICE_FAMILY = "1,2";
+			};
+			name = Debug;
+		};
+		A2F630EDA268B50D6F39B3F6 /* Debug */ = {
+			isa = XCBuildConfiguration;
+			buildSettings = {
+				ALWAYS_SEARCH_USER_PATHS = NO;
+				CLANG_ANALYZER_NONNULL = YES;
+				CLANG_ANALYZER_NUMBER_OBJECT_CONVERSION = YES_AGGRESSIVE;
+				CLANG_CXX_LANGUAGE_STANDARD = "gnu++14";
+				CLANG_CXX_LIBRARY = "libc++";
+				CLANG_ENABLE_MODULES = YES;
+				CLANG_ENABLE_OBJC_ARC = YES;
+				CLANG_ENABLE_OBJC_WEAK = YES;
+				CLANG_WARN_BLOCK_CAPTURE_AUTORELEASING = YES;
+				CLANG_WARN_BOOL_CONVERSION = YES;
+				CLANG_WARN_COMMA = YES;
+				CLANG_WARN_CONSTANT_CONVERSION = YES;
+				CLANG_WARN_DEPRECATED_OBJC_IMPLEMENTATIONS = YES;
+				CLANG_WARN_DIRECT_OBJC_ISA_USAGE = YES_ERROR;
+				CLANG_WARN_DOCUMENTATION_COMMENTS = YES;
+				CLANG_WARN_EMPTY_BODY = YES;
+				CLANG_WARN_ENUM_CONVERSION = YES;
+				CLANG_WARN_INFINITE_RECURSION = YES;
+				CLANG_WARN_INT_CONVERSION = YES;
+				CLANG_WARN_NON_LITERAL_NULL_CONVERSION = YES;
+				CLANG_WARN_OBJC_IMPLICIT_RETAIN_SELF = YES;
+				CLANG_WARN_OBJC_LITERAL_CONVERSION = YES;
+				CLANG_WARN_OBJC_ROOT_CLASS = YES_ERROR;
+				CLANG_WARN_QUOTED_INCLUDE_IN_FRAMEWORK_HEADER = YES;
+				CLANG_WARN_RANGE_LOOP_ANALYSIS = YES;
+				CLANG_WARN_STRICT_PROTOTYPES = YES;
+				CLANG_WARN_SUSPICIOUS_MOVE = YES;
+				CLANG_WARN_UNGUARDED_AVAILABILITY = YES_AGGRESSIVE;
+				CLANG_WARN_UNREACHABLE_CODE = YES;
+				CLANG_WARN__DUPLICATE_METHOD_MATCH = YES;
+				COPY_PHASE_STRIP = NO;
+				CURRENT_PROJECT_VERSION = 1;
+				DEBUG_INFORMATION_FORMAT = dwarf;
+				ENABLE_STRICT_OBJC_MSGSEND = YES;
+				ENABLE_TESTABILITY = YES;
+				GCC_C_LANGUAGE_STANDARD = gnu11;
+				GCC_DYNAMIC_NO_PIC = NO;
+				GCC_NO_COMMON_BLOCKS = YES;
+				GCC_OPTIMIZATION_LEVEL = 0;
+				GCC_PREPROCESSOR_DEFINITIONS = (
+					"$(inherited)",
+					"DEBUG=1",
+				);
+				GCC_WARN_64_TO_32_BIT_CONVERSION = YES;
+				GCC_WARN_ABOUT_RETURN_TYPE = YES_ERROR;
+				GCC_WARN_UNDECLARED_SELECTOR = YES;
+				GCC_WARN_UNINITIALIZED_AUTOS = YES_AGGRESSIVE;
+				GCC_WARN_UNUSED_FUNCTION = YES;
+				GCC_WARN_UNUSED_VARIABLE = YES;
+				IPHONEOS_DEPLOYMENT_TARGET = 16.0;
+				MARKETING_VERSION = 1.0;
+				MTL_ENABLE_DEBUG_INFO = INCLUDE_SOURCE;
+				MTL_FAST_MATH = YES;
+				ONLY_ACTIVE_ARCH = YES;
+				PRODUCT_NAME = "$(TARGET_NAME)";
+				SDKROOT = iphoneos;
+				SWIFT_ACTIVE_COMPILATION_CONDITIONS = DEBUG;
+				SWIFT_OPTIMIZATION_LEVEL = "-Onone";
+				SWIFT_VERSION = 5.0;
+			};
+			name = Debug;
+		};
+		A42C125BB989F81EFB88E2E4 /* Release */ = {
+			isa = XCBuildConfiguration;
+			buildSettings = {
+				ASSETCATALOG_COMPILER_APPICON_NAME = AppIcon;
+				CODE_SIGN_ENTITLEMENTS = App/NWVPN.entitlements;
+				CODE_SIGN_IDENTITY = "iPhone Developer";
+				DEVELOPMENT_TEAM = LG68MXT252;
+				GENERATE_INFOPLIST_FILE = YES;
+				INFOPLIST_KEY_CFBundleDisplayName = "NewWorld VPN";
+				INFOPLIST_KEY_UISupportedInterfaceOrientations_iPhone = UIInterfaceOrientationPortrait;
+				LD_RUNPATH_SEARCH_PATHS = (
+					"$(inherited)",
+					"@executable_path/Frameworks",
+				);
+				PRODUCT_BUNDLE_IDENTIFIER = com.newworld.NWVPNiOS;
+				SDKROOT = iphoneos;
+				TARGETED_DEVICE_FAMILY = "1,2";
+			};
+			name = Release;
+		};
+		CCC6078E96B124F4E553D0DB /* Release */ = {
+			isa = XCBuildConfiguration;
+			buildSettings = {
+				CODE_SIGN_ENTITLEMENTS = Extension/PacketTunnel.entitlements;
+				DEVELOPMENT_TEAM = LG68MXT252;
+				INFOPLIST_FILE = Extension/Info.plist;
+				LD_RUNPATH_SEARCH_PATHS = (
+					"$(inherited)",
+					"@executable_path/Frameworks",
+					"@executable_path/../../Frameworks",
+				);
+				PRODUCT_BUNDLE_IDENTIFIER = com.newworld.NWVPNiOS.PacketTunnel;
+				SDKROOT = iphoneos;
+				TARGETED_DEVICE_FAMILY = "1,2";
+			};
+			name = Release;
+		};
+		DF37888E046AF9DA31F61935 /* Debug */ = {
+			isa = XCBuildConfiguration;
+			buildSettings = {
+				CODE_SIGN_ENTITLEMENTS = Extension/PacketTunnel.entitlements;
+				DEVELOPMENT_TEAM = LG68MXT252;
+				INFOPLIST_FILE = Extension/Info.plist;
+				LD_RUNPATH_SEARCH_PATHS = (
+					"$(inherited)",
+					"@executable_path/Frameworks",
+					"@executable_path/../../Frameworks",
+				);
+				PRODUCT_BUNDLE_IDENTIFIER = com.newworld.NWVPNiOS.PacketTunnel;
+				SDKROOT = iphoneos;
+				TARGETED_DEVICE_FAMILY = "1,2";
+			};
+			name = Debug;
+		};
+/* End XCBuildConfiguration section */
+
+/* Begin XCConfigurationList section */
+		2F29B3646884B24778F9752C /* Build configuration list for PBXNativeTarget "NWVPNiOSPacketTunnel" */ = {
+			isa = XCConfigurationList;
+			buildConfigurations = (
+				DF37888E046AF9DA31F61935 /* Debug */,
+				CCC6078E96B124F4E553D0DB /* Release */,
+			);
+			defaultConfigurationIsVisible = 0;
+			defaultConfigurationName = Debug;
+		};
+		8FAC79FE9C48A75550EBD84F /* Build configuration list for PBXNativeTarget "NWVPNiOS" */ = {
+			isa = XCConfigurationList;
+			buildConfigurations = (
+				2B96CDBC35CFAE8E60E738C2 /* Debug */,
+				A42C125BB989F81EFB88E2E4 /* Release */,
+			);
+			defaultConfigurationIsVisible = 0;
+			defaultConfigurationName = Debug;
+		};
+		DF1589A06AA78BA944814432 /* Build configuration list for PBXProject "NWVPNiOS" */ = {
+			isa = XCConfigurationList;
+			buildConfigurations = (
+				A2F630EDA268B50D6F39B3F6 /* Debug */,
+				1673740CFF94D4C5E191BBBA /* Release */,
+			);
+			defaultConfigurationIsVisible = 0;
+			defaultConfigurationName = Debug;
+		};
+/* End XCConfigurationList section */
+	};
+	rootObject = 6A9FF86DC76F1188E27CBC94 /* Project object */;
+}

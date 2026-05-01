@@ -166,6 +166,14 @@ func tunPump(ctx context.Context, log *slog.Logger, tun *water.Interface, hub *s
 	}
 }
 
+func isNetTimeout(err error) bool {
+	if err == nil {
+		return false
+	}
+	var ne net.Error
+	return errors.As(err, &ne) && ne.Timeout()
+}
+
 func handleClient(ctx context.Context, log *slog.Logger, hub *server.Hub, tun io.Writer, raw net.Conn, nextOctet *atomic.Uint32, authUsers map[string]string) {
 	defer raw.Close()
 	netx.TuneTunnelTransport(raw)
@@ -194,6 +202,7 @@ func handleClient(ctx context.Context, log *slog.Logger, hub *server.Hub, tun io
 		_ = protocol.WriteFrame(tc, protocol.MsgError, protocol.EncodeError(protocol.ErrorBody{Code: 1, Msg: "bad ClientHello"}))
 		return
 	}
+	log.Info("client hello", "peer", tc.RemoteAddr(), "mtu", ch.MTU, "caps", ch.Caps)
 	mtu := ch.MTU
 	if mtu == 0 {
 		mtu = 1400
@@ -204,7 +213,13 @@ func handleClient(ctx context.Context, log *slog.Logger, hub *server.Hub, tun io
 		afr, err := protocol.ReadFrame(tc)
 		_ = tc.SetReadDeadline(time.Time{})
 		if err != nil {
-			log.Debug("read auth", "err", err)
+			if isNetTimeout(err) {
+				_ = protocol.WriteFrame(tc, protocol.MsgError, protocol.EncodeError(protocol.ErrorBody{
+					Code: 4,
+					Msg:  "expected AuthCredentials (server uses -auth-file; send username/password after ClientHello)",
+				}))
+			}
+			log.Info("read auth frame", "err", err, "peer", tc.RemoteAddr())
 			return
 		}
 		if afr.Type != protocol.MsgAuthCredentials {
@@ -226,7 +241,13 @@ func handleClient(ctx context.Context, log *slog.Logger, hub *server.Hub, tun io
 		afr, err := protocol.ReadFrame(tc)
 		_ = tc.SetReadDeadline(time.Time{})
 		if err != nil {
-			log.Debug("read optional auth", "err", err)
+			if isNetTimeout(err) {
+				_ = protocol.WriteFrame(tc, protocol.MsgError, protocol.EncodeError(protocol.ErrorBody{
+					Code: 4,
+					Msg:  "expected AuthCredentials after CapAuthNext (timeout)",
+				}))
+			}
+			log.Info("read optional auth frame", "err", err, "peer", tc.RemoteAddr())
 			return
 		}
 		if afr.Type != protocol.MsgAuthCredentials {

@@ -1,0 +1,43 @@
+name: NWVPNiOS
+options:
+  bundleIdPrefix: com.newworld
+  deploymentTarget:
+    iOS: "16.0"
+settings:
+  base:
+    MARKETING_VERSION: "1.0"
+    CURRENT_PROJECT_VERSION: "1"
+    SWIFT_VERSION: "5.0"
+    IPHONEOS_DEPLOYMENT_TARGET: "16.0"
+
+targets:
+  NWVPNiOS:
+    type: application
+    platform: iOS
+    sources:
+      - path: App
+    settings:
+      base:
+        PRODUCT_BUNDLE_IDENTIFIER: com.newworld.NWVPNiOS
+        CODE_SIGN_ENTITLEMENTS: App/NWVPN.entitlements
+        GENERATE_INFOPLIST_FILE: true
+        INFOPLIST_KEY_CFBundleDisplayName: NewWorld VPN
+        INFOPLIST_KEY_UISupportedInterfaceOrientations_iPhone: UIInterfaceOrientationPortrait
+    entitlements:
+      path: App/NWVPN.entitlements
+    dependencies:
+      - target: NWVPNiOSPacketTunnel
+        embed: true
+
+  NWVPNiOSPacketTunnel:
+    type: app-extension
+    platform: iOS
+    sources:
+      - path: Extension
+    settings:
+      base:
+        PRODUCT_BUNDLE_IDENTIFIER: com.newworld.NWVPNiOS.PacketTunnel
+        CODE_SIGN_ENTITLEMENTS: Extension/PacketTunnel.entitlements
+        INFOPLIST_FILE: Extension/Info.plist
+    entitlements:
+      path: Extension/PacketTunnel.entitlements
