@@ -22,7 +22,10 @@ targets:
         CODE_SIGN_ENTITLEMENTS: App/NWVPN.entitlements
         GENERATE_INFOPLIST_FILE: true
         INFOPLIST_KEY_CFBundleDisplayName: NewWorld VPN
+        INFOPLIST_KEY_UILaunchScreen_Generation: true
+        INFOPLIST_KEY_UIRequiresFullScreen: true
         INFOPLIST_KEY_UISupportedInterfaceOrientations_iPhone: UIInterfaceOrientationPortrait
+        TARGETED_DEVICE_FAMILY: "1"
     entitlements:
       path: App/NWVPN.entitlements
     dependencies:
@@ -39,5 +42,6 @@ targets:
         PRODUCT_BUNDLE_IDENTIFIER: com.newworld.NWVPNiOS.PacketTunnel
         CODE_SIGN_ENTITLEMENTS: Extension/PacketTunnel.entitlements
         INFOPLIST_FILE: Extension/Info.plist
+        TARGETED_DEVICE_FAMILY: "1"
     entitlements:
       path: Extension/PacketTunnel.entitlements
