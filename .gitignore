@@ -4,6 +4,9 @@ certs/*.key
 certs/*.srl
 certs/*.csr
 certs/*.pem
+certs/*.cer
+certs/*.provisionprofile
+certs/*.certSigningRequest
 
 # Windows 可执行文件
 *.exe
@@ -29,6 +32,7 @@ android/.idea/
 
 # IDE
 .idea/
+.cursor/*.log
 
 # Swift Package Manager
 .build/
@@ -40,6 +44,17 @@ simple-connect/.build/
 **/xcuserdata/
 **/*.xcuserstate
 **/*.xcuserdatad/
+**/DerivedData/
+**/.derivedData/
+**/.derivedDataRelease/
+
+# NWVPN 本地产物
+apps/macos/NWVPN/build/
+apps/macos/NWVPN/*.app
+apps/macos/NWVPN/*.systemextension
+
+# 本地归档产物
+archives/
 
 # XcodeGen 生成的工程（保留 project.yml，运行 xcodegen generate）
 apps/macos/NWVPN/NWVPN.xcodeproj/

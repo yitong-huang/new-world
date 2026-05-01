@@ -19,20 +19,3 @@ sudo swift run
 - **不勾选**时，只有 **发往隧道网段 / 经系统路由指向 utun** 的流量走 VPN，**不是**整机所有流量。
 
 这与系统「完整 VPN」应用（Network Extension）行为不同；要 100% 与系统设置里一致的体验需做 Apple 的 Packet Tunnel 应用。
-
-## 常用
-
-```bash
-# 1) 更新基础库（CN + HK/MO）
-bash scripts/fetch-china-routes.sh
-# 2) 根据你的常用域名补充 /32
-bash scripts/update-extra-direct-from-domains.sh
-# 3) 重启客户端加载新路由
-cd go
-sudo ./nw-client \
-  -server new-world-kr-01.2fish.com.cn:8443 \
-  -cacert ../certs/server.crt \
-  -split-default \
-  -china-routes ../configs/china_ipv4.txt \
-  -extra-direct-routes ../configs/extra_direct_ipv4.txt
-```

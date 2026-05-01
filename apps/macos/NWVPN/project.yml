@@ -19,27 +19,67 @@ targets:
     settings:
       base:
         PRODUCT_BUNDLE_IDENTIFIER: com.newworld.NWVPN
-        CODE_SIGN_ENTITLEMENTS: App/NWVPN.entitlements
+        CODE_SIGN_ENTITLEMENTS: App/NWVPNDebug.entitlements
+        CODE_SIGN_STYLE: Manual
+        CODE_SIGN_INJECT_BASE_ENTITLEMENTS: NO
+        DEVELOPMENT_TEAM: LG68MXT252
+        CODE_SIGN_IDENTITY: Apple Development
         ENABLE_HARDENED_RUNTIME: true
         GENERATE_INFOPLIST_FILE: true
         INFOPLIST_KEY_CFBundleDisplayName: NewWorld VPN
         INFOPLIST_KEY_LSApplicationCategoryType: public.app-category.utilities
+        INFOPLIST_KEY_NSSystemExtensionUsageDescription: NewWorld VPN 需要安装系统扩展以提供 Packet Tunnel VPN 功能。
+      configs:
+        Debug:
+          PROVISIONING_PROFILE_SPECIFIER: dev mac NWVPN profile
+        Release:
+          CODE_SIGN_ENTITLEMENTS: App/NWVPN.entitlements
+          CODE_SIGN_STYLE: Manual
+          CODE_SIGN_IDENTITY: Developer ID Application
+          PROVISIONING_PROFILE_SPECIFIER: mac NWVPN profile
     entitlements:
       path: App/NWVPN.entitlements
+      properties:
+        com.apple.developer.networking.networkextension:
+          - packet-tunnel-provider-systemextension
+        com.apple.developer.system-extension.install: true
+        com.apple.security.app-sandbox: true
+        com.apple.security.network.client: true
     dependencies:
       - target: NWVPNPacketTunnel
         embed: true
+      - sdk: SystemExtensions.framework
 
   NWVPNPacketTunnel:
-    type: app-extension
+    type: system-extension
     platform: macOS
     sources:
       - path: Extension
     settings:
       base:
         PRODUCT_BUNDLE_IDENTIFIER: com.newworld.NWVPN.PacketTunnel
-        CODE_SIGN_ENTITLEMENTS: Extension/PacketTunnel.entitlements
+        PRODUCT_NAME: $(PRODUCT_BUNDLE_IDENTIFIER)
+        PRODUCT_MODULE_NAME: NWVPNPacketTunnel
+        ENABLE_HARDENED_RUNTIME: true
+        CODE_SIGN_ENTITLEMENTS: Extension/PacketTunnelDebug.entitlements
+        CODE_SIGN_STYLE: Manual
+        CODE_SIGN_INJECT_BASE_ENTITLEMENTS: NO
+        DEVELOPMENT_TEAM: LG68MXT252
+        CODE_SIGN_IDENTITY: Apple Development
         INFOPLIST_FILE: Extension/Info.plist
         LD_RUNPATH_SEARCH_PATHS: "$(inherited) @executable_path/../Frameworks @executable_path/../../../../Frameworks"
+      configs:
+        Debug:
+          PROVISIONING_PROFILE_SPECIFIER: dev mac NWVPN PacketTunnel
+        Release:
+          CODE_SIGN_ENTITLEMENTS: Extension/PacketTunnel.entitlements
+          CODE_SIGN_STYLE: Manual
+          CODE_SIGN_IDENTITY: Developer ID Application
+          PROVISIONING_PROFILE_SPECIFIER: mac NWVPN PacketTunnel profile
     entitlements:
       path: Extension/PacketTunnel.entitlements
+      properties:
+        com.apple.developer.networking.networkextension:
+          - packet-tunnel-provider-systemextension
+        com.apple.security.app-sandbox: true
+        com.apple.security.network.client: true

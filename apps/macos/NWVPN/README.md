@@ -1,6 +1,6 @@
-# NWVPN（macOS 主应用 + Packet Tunnel）
+# NWVPN（macOS 主应用 + Packet Tunnel System Extension）
 
-在仓库根目录用 [XcodeGen](https://github.com/yonaskolb/XcodeGen) 生成 Xcode 工程，即可得到可签名的完整 VPN 壳应用：主界面通过 `NETunnelProviderManager` 启动内嵌扩展，扩展内实现与 `apple/Sources/NWTunnel` 相同的 TLS + 帧协议逻辑。
+在仓库根目录用 [XcodeGen](https://github.com/yonaskolb/XcodeGen) 生成 Xcode 工程，即可得到可签名的完整 VPN 壳应用：主界面先通过 `OSSystemExtensionManager` 激活 Packet Tunnel System Extension，再通过 `NETunnelProviderManager` 启动 VPN。扩展内实现与 `apple/Sources/NWTunnel` 相同的 TLS + 帧协议逻辑。
 
 ## 生成工程
 
@@ -11,13 +11,46 @@ xcodegen generate
 open NWVPN.xcodeproj
 ```
 
-在 Xcode 中为 **NWVPN** 与 **NWVPNPacketTunnel** 两个 Target 选择你的 **Team**，并确认 Capability「Network Extension」与 entitlements 中的 `packet-tunnel-provider` 已在 [Apple Developer](https://developer.apple.com) 对应 App ID 上启用。
+在 Xcode 中为 **NWVPN** 与 **NWVPNPacketTunnel** 两个 Target 选择你的 **Team**。Developer ID 站外发布时需要两个 provisioning profile：
+
+- `com.newworld.NWVPN`：包含 `packet-tunnel-provider-systemextension` 与 `com.apple.developer.system-extension.install`。
+- `com.newworld.NWVPN.PacketTunnel`：包含 `packet-tunnel-provider-systemextension`。
+
+签名能力以 `project.yml` 为准：`xcodegen generate` 会按其中的 `entitlements.properties` 重新生成 `App/NWVPN.entitlements` 与 `Extension/PacketTunnel.entitlements`。如果在 Xcode 里手动改 Signing & Capabilities，后续生成工程可能会覆盖；需要持久化时请改 `project.yml`。
 
 ## 与 Go 服务端联调
 
 1. 按仓库 `scripts/gen-certs.sh` 生成证书，启动 `nw-server`（见 `docs/server-deploy.md`）。
 2. 在应用中填写服务器 `主机:端口`；若服务端启用 `-auth-file`，在「认证」中填写用户名与密码。
-3. 首次连接时系统会提示授权 VPN；扩展使用开发用 TLS 校验（接受任意证书），生产环境需改为锚定 CA / 证书固定。
+3. 首次连接时系统会提示启用 System Extension；用户需要在系统设置中允许 NewWorld VPN。
+4. System Extension 允许后，应用会创建 VPN 配置并请求授权；扩展使用开发用 TLS 校验（接受任意证书），生产环境需改为锚定 CA / 证书固定。
+
+## Release 打包验证
+
+Archive / notarization 后，检查导出的 `.app`：
+
+```bash
+codesign -d --entitlements :- /Applications/NWVPN.app
+codesign -d --entitlements :- /Applications/NWVPN.app/Contents/Library/SystemExtensions/com.newworld.NWVPN.PacketTunnel.systemextension
+systemextensionsctl list
+```
+
+主 App 和 System Extension 的 Network Extension entitlement 都应为 `packet-tunnel-provider-systemextension`，System Extension 产物应位于 `Contents/Library/SystemExtensions/`。
+
+## 本地调试注意事项（System Extension）
+
+macOS 要求包含 System Extension 的宿主 App 必须从 `/Applications` 启动。直接运行 `DerivedData/.../Build/Products/Debug/NWVPN.app` 会报：
+
+- `App containing System Extension to be activated must be in /Applications folder`
+
+推荐调试流程：
+
+```bash
+cp -R ~/Library/Developer/Xcode/DerivedData/<你的项目>/Build/Products/Debug/NWVPN.app /Applications/NWVPN.app
+open /Applications/NWVPN.app
+```
+
+每次重新编译后，若产物有更新，需要重新覆盖拷贝一次再启动。
 
 ## 协议源码同步
 
