@@ -9,6 +9,8 @@ import Security
 open class PacketTunnelProvider: NEPacketTunnelProvider {
     private var connection: NWConnection?
     private var rxBuffer = Data()
+    private let startTunnelCompletionLock = NSLock()
+    private var didReportStartTunnelCompletion = false
 
     open override func startTunnel(options: [String: NSObject]?, completionHandler: @escaping (Error?) -> Void) {
         guard let proto = protocolConfiguration as? NETunnelProviderProtocol,
@@ -41,7 +43,7 @@ open class PacketTunnelProvider: NEPacketTunnelProvider {
             guard let self else { return }
             switch state {
             case .ready:
-                Task { await self.handshakeAndRun(completionHandler: completionHandler) }
+                Task { await self.handshakeAndRun(options: options, completionHandler: completionHandler) }
             case .failed(let err):
                 completionHandler(err)
             default:
@@ -57,15 +59,44 @@ open class PacketTunnelProvider: NEPacketTunnelProvider {
         completionHandler()
     }
 
-    private func handshakeAndRun(completionHandler: @escaping (Error?) -> Void) async {
+    /// 认证优先来自 `startVPNTunnel(options:)`（不落盘，减轻 NE 偏好里 NSSecureCoding XPC 解码问题）；否则读 `providerConfiguration`。
+    private static func tunnelAuthCredentials(
+        options: [String: NSObject]?,
+        tunnelProto: NETunnelProviderProtocol?,
+    ) -> (user: String, pass: String) {
+        func stringFromPlistValue(_ obj: Any?) -> String {
+            switch obj {
+            case let s as String:
+                return s
+            case let s as NSString:
+                return s as String
+            default:
+                return ""
+            }
+        }
+        func stringKeyNSObject(_ dict: [String: NSObject]?, _ key: String) -> String {
+            stringFromPlistValue(dict?[key])
+        }
+        let ou = stringKeyNSObject(options, "username")
+        let op = stringKeyNSObject(options, "password")
+        if !ou.isEmpty {
+            return (ou, op)
+        }
+        let cfg = tunnelProto?.providerConfiguration
+        return (
+            stringFromPlistValue(cfg?["username"]),
+            stringFromPlistValue(cfg?["password"]),
+        )
+    }
+
+    private func handshakeAndRun(options: [String: NSObject]?, completionHandler: @escaping (Error?) -> Void) async {
         guard let conn = connection else {
             completionHandler(NSError(domain: "NWTunnel", code: 2, userInfo: nil))
             return
         }
         do {
             let tunnelProto = self.protocolConfiguration as? NETunnelProviderProtocol
-            let authUser = (tunnelProto?.providerConfiguration?["username"] as? String) ?? ""
-            let authPass = (tunnelProto?.providerConfiguration?["password"] as? String) ?? ""
+            let (authUser, authPass) = Self.tunnelAuthCredentials(options: options, tunnelProto: tunnelProto)
             var caps: UInt32 = 0
             if !authUser.isEmpty {
                 caps |= NwCapAuthNext
@@ -100,12 +131,35 @@ open class PacketTunnelProvider: NEPacketTunnelProvider {
 
             try await withCheckedThrowingContinuation { (cont: CheckedContinuation<Void, Error>) in
                 setTunnelNetworkSettings(settings) { err in
-                    if let err { cont.resume(throwing: err) } else { cont.resume() }
+                    if let err {
+                        cont.resume(throwing: err)
+                        return
+                    }
+                    let finish: () -> Void = { [weak self] in
+                        guard let self else { return }
+                        self.startTunnelCompletionLock.lock()
+                        defer { self.startTunnelCompletionLock.unlock() }
+                        guard !self.didReportStartTunnelCompletion else { return }
+                        self.didReportStartTunnelCompletion = true
+                        completionHandler(nil)
+                        Task {
+                            do {
+                                try await self.runRelay(conn: conn)
+                            } catch {
+                                DispatchQueue.main.async {
+                                    self.cancelTunnelWithError(error)
+                                }
+                            }
+                        }
+                    }
+                    if Thread.isMainThread {
+                        finish()
+                    } else {
+                        DispatchQueue.main.async(execute: finish)
+                    }
+                    cont.resume()
                 }
             }
-
-            try await runRelay(conn: conn)
-            completionHandler(nil)
         } catch {
             completionHandler(error)
         }

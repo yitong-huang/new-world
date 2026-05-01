@@ -44,18 +44,19 @@ public enum NwFraming {
 
     public static func decodeHeader(_ prefix: Data) throws -> (NwMsgType, Int) {
         guard prefix.count >= headerSize else { throw NwFramingError.shortBuffer }
-        if prefix[0] != 0x4E || prefix[1] != 0x57 || prefix[2] != 0x30 || prefix[3] != 0x31 {
+        let bytes = Array(prefix.prefix(headerSize))
+        if bytes[0] != 0x4E || bytes[1] != 0x57 || bytes[2] != 0x30 || bytes[3] != 0x31 {
             throw NwFramingError.badMagic
         }
-        let ver = (UInt16(prefix[4]) << 8) | UInt16(prefix[5])
+        let ver = (UInt16(bytes[4]) << 8) | UInt16(bytes[5])
         if ver != 1 { throw NwFramingError.badVersion }
-        guard let t = NwMsgType(rawValue: prefix[6]) else { throw NwFramingError.badType }
-        if prefix[7] != 0 { throw NwFramingError.badVersion }
+        guard let t = NwMsgType(rawValue: bytes[6]) else { throw NwFramingError.badType }
+        if bytes[7] != 0 { throw NwFramingError.badVersion }
         let len = Int(
-            (UInt32(prefix[8]) << 24)
-                | (UInt32(prefix[9]) << 16)
-                | (UInt32(prefix[10]) << 8)
-                | UInt32(prefix[11]),
+            (UInt32(bytes[8]) << 24)
+                | (UInt32(bytes[9]) << 16)
+                | (UInt32(bytes[10]) << 8)
+                | UInt32(bytes[11]),
         )
         if len < 0 || len > 1_048_576 - headerSize { throw NwFramingError.badLength }
         return (t, len)
