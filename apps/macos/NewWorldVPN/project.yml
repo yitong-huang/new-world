@@ -17,8 +17,12 @@ targets:
     sources:
       - path: App
       - path: Shared
+      # XcodeGen 的顶层 `resources:` 不会写入本工程的 PBXResourcesBuildPhase；必须把目录放进 sources 才会编译 Asset Catalog
+      - path: Resources
+        buildPhase: resources
     settings:
       base:
+        ASSETCATALOG_COMPILER_APPICON_NAME: AppIcon
         PRODUCT_BUNDLE_IDENTIFIER: com.newworld.NewWorldVPN
         PRODUCT_NAME: NewWorldVPN
         CODE_SIGN_STYLE: Automatic

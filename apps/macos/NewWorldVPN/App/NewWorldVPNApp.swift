@@ -9,7 +9,12 @@ struct NewWorldVPNApp: App {
             ContentView()
                 .environmentObject(tunnel)
         } label: {
-            Image(systemName: tunnel.isConnected ? "network.badge.shield.half.filled" : "network")
+            Image(tunnel.isConnected ? "MenuBarBrickConnected" : "MenuBarBrickDisconnected")
+                .resizable()
+                .interpolation(.high)
+                .scaledToFit()
+                .frame(height: 14)
+                .accessibilityLabel(tunnel.isConnected ? "已连接" : "未连接")
         }
         .menuBarExtraStyle(.automatic)
     }
