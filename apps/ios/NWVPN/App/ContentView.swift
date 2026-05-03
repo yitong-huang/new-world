@@ -58,6 +58,15 @@ struct ContentView: View {
                 }
             }
             .navigationTitle("NewWorld VPN")
+            .toolbar {
+                ToolbarItem(placement: .topBarLeading) {
+                    Image("BrickWallMark")
+                        .resizable()
+                        .scaledToFit()
+                        .frame(width: 28, height: 19)
+                        .foregroundStyle(.secondary)
+                }
+            }
         }
     }
 }

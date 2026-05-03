@@ -174,10 +174,11 @@ final class VPNManager: ObservableObject {
                 proto.providerBundleIdentifier = self.extensionBundleId
                 proto.serverAddress = addr
                 proto.providerConfiguration = wantCfg
+                let hasExisting = (managers?.first as? NETunnelProviderManager) != nil
+                let configMatches = self.savedConfigurationMatches(manager: m, addr: addr, username: username, password: password, chinaDirect: chinaDirect)
 
                 /// 已与磁盘偏好一致：直接启动，不写偏好（减少对 nehelper / 扩展的瞬时压力）。
-                if managers?.first as? NETunnelProviderManager != nil,
-                   self.savedConfigurationMatches(manager: m, addr: addr, username: username, password: password, chinaDirect: chinaDirect)
+                if hasExisting, configMatches, m.isEnabled
                 {
                     self.manager = m
                     defer { self.endConnectFlow() }
@@ -189,7 +190,6 @@ final class VPNManager: ObservableObject {
                     }
                     return
                 }
-
                 m.protocolConfiguration = proto
                 m.localizedDescription = "NewWorld VPN"
                 m.isEnabled = true

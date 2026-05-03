@@ -15,6 +15,7 @@
 		BECF95CDFAE87D9DAB1033C4 /* china_ipv4.txt in Resources */ = {isa = PBXBuildFile; fileRef = A6C4E4EF4DA5A5685D2BBA13 /* china_ipv4.txt */; };
 		C253166D24E6AAD7A000BFDA /* extra_direct_ipv4.txt in Resources */ = {isa = PBXBuildFile; fileRef = 2A3419039A42621EBC4BFFFF /* extra_direct_ipv4.txt */; };
 		D348A7FC574F6CE9B0A3535E /* NWVPNApp.swift in Sources */ = {isa = PBXBuildFile; fileRef = 05BA1F517D8BABBA07F10AC4 /* NWVPNApp.swift */; };
+		E9A3B02D4F5C61728394A5B6 /* Assets.xcassets in Resources */ = {isa = PBXBuildFile; fileRef = D8F2A91C3E4B5061728394A5 /* Assets.xcassets */; };
 /* End PBXBuildFile section */
 
 /* Begin PBXContainerItemProxy section */
@@ -54,6 +55,7 @@
 		AF518009836A9C9229C0ED23 /* NWVPN.entitlements */ = {isa = PBXFileReference; lastKnownFileType = text.plist.entitlements; path = NWVPN.entitlements; sourceTree = "<group>"; };
 		C550AB336FD3A2E94BA178A5 /* Info.plist */ = {isa = PBXFileReference; lastKnownFileType = text.plist; path = Info.plist; sourceTree = "<group>"; };
 		D43E6531E3E6158B59A07B1B /* ContentView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ContentView.swift; sourceTree = "<group>"; };
+		D8F2A91C3E4B5061728394A5 /* Assets.xcassets */ = {isa = PBXFileReference; lastKnownFileType = folder.assetcatalog; path = Assets.xcassets; sourceTree = "<group>"; };
 /* End PBXFileReference section */
 
 /* Begin PBXGroup section */
@@ -82,6 +84,7 @@
 		268C37E7EFF5803BC2FBE26A /* App */ = {
 			isa = PBXGroup;
 			children = (
+				D8F2A91C3E4B5061728394A5 /* Assets.xcassets */,
 				D43E6531E3E6158B59A07B1B /* ContentView.swift */,
 				AF518009836A9C9229C0ED23 /* NWVPN.entitlements */,
 				05BA1F517D8BABBA07F10AC4 /* NWVPNApp.swift */,
@@ -125,6 +128,7 @@
 			buildConfigurationList = 8FAC79FE9C48A75550EBD84F /* Build configuration list for PBXNativeTarget "NWVPNiOS" */;
 			buildPhases = (
 				68F3161601390E143989EDE5 /* Sources */,
+				F0B4C13E506D728394A5B6C7 /* Resources */,
 				657A8592C72A730C09ABBAFF /* Embed Foundation Extensions */,
 			);
 			buildRules = (
@@ -175,6 +179,14 @@
 			files = (
 				BECF95CDFAE87D9DAB1033C4 /* china_ipv4.txt in Resources */,
 				C253166D24E6AAD7A000BFDA /* extra_direct_ipv4.txt in Resources */,
+			);
+			runOnlyForDeploymentPostprocessing = 0;
+		};
+		F0B4C13E506D728394A5B6C7 /* Resources */ = {
+			isa = PBXResourcesBuildPhase;
+			buildActionMask = 2147483647;
+			files = (
+				E9A3B02D4F5C61728394A5B6 /* Assets.xcassets in Resources */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};
