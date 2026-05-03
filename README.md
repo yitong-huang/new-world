@@ -110,6 +110,8 @@ sudo .build/release/SimpleConnect
 
 说明见 [`simple-connect/README.md`](simple-connect/README.md)。
 
+同一仓库还提供菜单栏应用 **NewWorldVPN**（`nw-client` + 特权助手，不走 Network Extension），说明见 [`apps/macos/NewWorldVPN/README.md`](apps/macos/NewWorldVPN/README.md)。
+
 ---
 
 ## 4. macOS：Xcode 应用 `NWVPN`（主应用 + Packet Tunnel）
@@ -195,6 +197,7 @@ gradle assembleDebug
 | `docs/server-deploy.md` | 服务端部署、NAT、systemd、认证 |
 | `docs/signing-and-ops.md` | 签名、Network Extension、Wintun、排障 |
 | `docs/protocol-v1.md` | 帧协议 v1 |
+| `apps/macos/NewWorldVPN/README.md` | macOS 菜单栏客户端（`nw-client` + 特权助手） |
 
 ## 常用
 

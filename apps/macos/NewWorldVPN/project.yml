@@ -1,0 +1,94 @@
+name: NewWorldVPN
+options:
+  bundleIdPrefix: com.newworld
+  deploymentTarget:
+    macOS: "13.0"
+settings:
+  base:
+    MARKETING_VERSION: "1.0"
+    CURRENT_PROJECT_VERSION: "1"
+    SWIFT_VERSION: "5.0"
+    MACOSX_DEPLOYMENT_TARGET: "13.0"
+
+targets:
+  NewWorldVPN:
+    type: application
+    platform: macOS
+    sources:
+      - path: App
+      - path: Shared
+    settings:
+      base:
+        PRODUCT_BUNDLE_IDENTIFIER: com.newworld.NewWorldVPN
+        PRODUCT_NAME: NewWorldVPN
+        CODE_SIGN_STYLE: Automatic
+        DEVELOPMENT_TEAM: LG68MXT252
+        ENABLE_HARDENED_RUNTIME: true
+        GENERATE_INFOPLIST_FILE: true
+        INFOPLIST_KEY_CFBundleDisplayName: NewWorldVPN
+        INFOPLIST_KEY_LSApplicationCategoryType: public.app-category.utilities
+        INFOPLIST_KEY_LSUIElement: true
+        INFOPLIST_KEY_NSPrincipalClass: NSApplication
+        INFOPLIST_KEY_NSHumanReadableCopyright: Copyright © NewWorld
+
+    entitlements:
+      path: App/NewWorldVPN.entitlements
+      properties:
+        com.apple.security.app-sandbox: false
+
+    dependencies:
+      - target: NewWorldVPNHelper
+        embed: true
+        copy:
+          destination: wrapper
+          subpath: Contents/Library/HelperTools
+
+    postBuildScripts:
+      - name: Embed nw-client, certs, and SMAppService LaunchDaemon plist
+        script: |
+          set -e
+          RES="${TARGET_BUILD_DIR}/${CONTENTS_FOLDER_PATH}/Resources"
+          mkdir -p "${RES}"
+          NW="${SRCROOT}/../../../go/nw-client"
+          if [ -f "$NW" ]; then
+            cp -f "$NW" "${RES}/nw-client"
+            chmod +x "${RES}/nw-client"
+          fi
+          CRT="${SRCROOT}/../../../certs/server.crt"
+          if [ -f "$CRT" ]; then
+            cp -f "$CRT" "${RES}/server.crt"
+          fi
+          CHINA="${SRCROOT}/../../../configs/china_ipv4.txt"
+          if [ -f "$CHINA" ]; then
+            cp -f "$CHINA" "${RES}/china_ipv4.txt"
+          fi
+          EXTRA="${SRCROOT}/../../../configs/extra_direct_ipv4.txt"
+          if [ -f "$EXTRA" ]; then
+            cp -f "$EXTRA" "${RES}/extra_direct_ipv4.txt"
+          fi
+          # SMAppService.daemon(plistName:) 要求 plist 位于 Contents/Library/LaunchDaemons/
+          LD="${TARGET_BUILD_DIR}/${CONTENTS_FOLDER_PATH}/Library/LaunchDaemons"
+          mkdir -p "${LD}"
+          cp -f "${SRCROOT}/LaunchDaemons/com.newworld.NewWorldVPN.helper.plist" "${LD}/"
+        basedOnDependencyAnalysis: false
+
+  NewWorldVPNHelper:
+    type: tool
+    platform: macOS
+    sources:
+      - path: Helper
+      - path: Shared
+    settings:
+      base:
+        PRODUCT_BUNDLE_IDENTIFIER: com.newworld.NewWorldVPN.helper
+        PRODUCT_NAME: com.newworld.NewWorldVPN.helper
+        CODE_SIGN_STYLE: Automatic
+        DEVELOPMENT_TEAM: LG68MXT252
+        ENABLE_HARDENED_RUNTIME: true
+        GENERATE_INFOPLIST_FILE: true
+        SKIP_INSTALL: YES
+
+    entitlements:
+      path: Helper/Helper.entitlements
+      properties:
+        com.apple.security.app-sandbox: false

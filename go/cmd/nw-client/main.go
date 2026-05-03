@@ -9,6 +9,7 @@ import (
 	"net"
 	"os"
 	"os/signal"
+	"runtime"
 	"sync"
 
 	"new.world/nw/internal/authcfg"
@@ -25,9 +26,12 @@ func main() {
 	chinaRoutes := flag.String("china-routes", "", "IPv4 CIDR list file: with -split-default, add those nets via physical gateway (domestic direct); Linux/macOS only")
 	extraDirectRoutes := flag.String("extra-direct-routes", "", "optional extra IPv4 CIDR list file merged with -china-routes (for patch overrides)")
 	authFile := flag.String("auth-file", "", "JSON with username/password (configs/auth.client.example.json); if set, sent after ClientHello")
+	noIPv6Mitigation := flag.Bool("no-ipv6-mitigation", false, "Darwin only: do not disable IPv6 on the primary interface when using -split-default (IPv6 may bypass the IPv4 tunnel)")
 	flag.Parse()
 
 	log := slog.New(slog.NewTextHandler(os.Stderr, &slog.HandlerOptions{Level: slog.LevelInfo}))
+
+	tuntap.SetDarwinIPv6Mitigation(!*noIPv6Mitigation)
 
 	if *chinaRoutes != "" && !*split {
 		log.Error("-china-routes requires -split-default")
@@ -109,6 +113,9 @@ func main() {
 			}
 		} else {
 			splitFn = func(ifName string) (func(), error) {
+				if runtime.GOOS == "darwin" {
+					return tuntap.AddSplitDefaultRoutesDarwinWithIPv6Mitigation(ifName, log)
+				}
 				if err := tuntap.AddSplitDefaultRoutes(ifName); err != nil {
 					return nil, err
 				}

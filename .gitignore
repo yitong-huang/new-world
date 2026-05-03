@@ -58,6 +58,7 @@ archives/
 
 # XcodeGen 生成的工程（保留 project.yml，运行 xcodegen generate）
 apps/macos/NWVPN/NWVPN.xcodeproj/
+apps/macos/NewWorldVPN/NewWorldVPN.xcodeproj/
 
 # 本地环境变量与密钥文件（勿提交真实配置）
 .env

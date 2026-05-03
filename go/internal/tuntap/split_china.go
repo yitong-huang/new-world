@@ -30,12 +30,22 @@ func SetupSplitDefaultWithChina(log *slog.Logger, ifName, routesFile, extraRoute
 	if err := AddSplitDefaultRoutes(ifName); err != nil {
 		return nil, err
 	}
+	ipv6Undo := ipv6MitigationUndoAfterSplitDefault(log, dev)
 
 	if len(nets) == 0 {
+		dnsUndo := tunnelDNSUndoAfterChinaSplit(log, dev)
 		if log != nil {
 			log.Warn("direct-routes files have no CIDR lines; only split-default is active", "china_file", routesFile, "extra_file", extraRoutesFile)
 		}
-		return func() { RemoveSplitDefaultRoutes(ifName) }, nil
+		return func() {
+			if ipv6Undo != nil {
+				ipv6Undo()
+			}
+			if dnsUndo != nil {
+				dnsUndo()
+			}
+			RemoveSplitDefaultRoutes(ifName)
+		}, nil
 	}
 
 	var added []*net.IPNet
@@ -70,14 +80,28 @@ func SetupSplitDefaultWithChina(log *slog.Logger, ifName, routesFile, extraRoute
 
 	if int(fail.Load()) > 0 && len(added) == 0 {
 		RemoveSplitDefaultRoutes(ifName)
+		if ipv6Undo != nil {
+			ipv6Undo()
+		}
 		return nil, fmt.Errorf("all %d china route additions failed", fail.Load())
 	}
+
+	if log != nil {
+		log.Info("split routing: china route workers done, applying tunnel-friendly DNS if possible")
+	}
+	dnsUndo := tunnelDNSUndoAfterChinaSplit(log, dev)
 
 	cleanup = func() {
 		for _, n := range added {
 			delChinaRoute(n, gw, dev)
 		}
 		RemoveSplitDefaultRoutes(ifName)
+		if dnsUndo != nil {
+			dnsUndo()
+		}
+		if ipv6Undo != nil {
+			ipv6Undo()
+		}
 	}
 	if log != nil {
 		log.Info("split routing: direct routes installed", "ok", len(added), "failed", fail.Load(), "gw", gw, "dev", dev, "tun", ifName, "china_file", routesFile, "extra_file", extraRoutesFile)

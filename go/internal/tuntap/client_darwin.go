@@ -22,10 +22,15 @@ func ConfigureClientPointToPoint(ifName, clientIP, serverIP string) error {
 }
 
 func AddSplitDefaultRoutes(ifName string) error {
-	for _, cidr := range []string{"0.0.0.0/1", "128.0.0.0/1"} {
-		cmd := exec.Command("route", "-n", "add", "-net", cidr, "-interface", ifName)
+	// 使用 -netmask 形式：与 `0.0.0.0/1`、`128.0.0.0/1` 等价；部分 macOS 上 CIDR 写法偶发解析/拒绝。
+	split := []struct{ net, mask string }{
+		{"0.0.0.0", "128.0.0.0"},
+		{"128.0.0.0", "128.0.0.0"},
+	}
+	for _, r := range split {
+		cmd := exec.Command("route", "-n", "add", "-net", r.net, "-netmask", r.mask, "-interface", ifName)
 		if out, err := cmd.CombinedOutput(); err != nil {
-			return fmt.Errorf("route %s: %w: %s", cidr, err, out)
+			return fmt.Errorf("route add -net %s -netmask %s -interface %s: %w: %s", r.net, r.mask, ifName, err, out)
 		}
 	}
 	return nil
@@ -33,8 +38,12 @@ func AddSplitDefaultRoutes(ifName string) error {
 
 // RemoveSplitDefaultRoutes removes split-default routes added by AddSplitDefaultRoutes (best effort).
 func RemoveSplitDefaultRoutes(ifName string) {
-	for _, cidr := range []string{"0.0.0.0/1", "128.0.0.0/1"} {
-		_ = exec.Command("route", "delete", "-net", cidr, "-interface", ifName).Run()
+	split := []struct{ net, mask string }{
+		{"0.0.0.0", "128.0.0.0"},
+		{"128.0.0.0", "128.0.0.0"},
+	}
+	for _, r := range split {
+		_ = exec.Command("route", "delete", "-net", r.net, "-netmask", r.mask, "-interface", ifName).Run()
 	}
 }
 
