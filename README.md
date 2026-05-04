@@ -199,6 +199,8 @@ gradle assembleDebug
 
 调试包一般在各工程的 `app/build/outputs/apk/debug/` 下（文件名以 Gradle 输出为准）。
 
+- **`apps/windows/NWVPN/`**：与 mac 主界面类似的 **WPF 控制台 + 系统托盘**；隧道由同仓库 **`go/cmd/nw-client`**（Wintun）承载。构建与打包见 [`apps/windows/NWVPN/README.md`](apps/windows/NWVPN/README.md)；在 Windows 上可从仓库根目录执行 `.\scripts\package_windows_nwvpn.ps1` 生成 `archives\windows-nwvpn\publish\`。
+
 ---
 
 ## 8. 配置示例

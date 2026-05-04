@@ -37,6 +37,10 @@ apps/android/NWVPN/local.properties
 apps/android/NWVPN/*.iml
 apps/android/NWVPN/.idea/
 
+# Windows NWVPN (.NET)
+apps/windows/NWVPN/**/bin/
+apps/windows/NWVPN/**/obj/
+
 # IDE
 .idea/
 .cursor/*.log

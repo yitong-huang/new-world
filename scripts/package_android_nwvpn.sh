@@ -10,14 +10,18 @@
 #   ./scripts/package_android_nwvpn.sh bundle       # Release AAB（应用上架）
 #   ./scripts/package_android_nwvpn.sh clean        # ./gradlew clean
 #
+# 产物默认复制到仓库根下 archives/android-nwvpn/（目录在 .gitignore 中）。
+#
 # 可选环境变量:
 #   GRADLE_EXTRA_ARGS   追加到 gradlew 的参数，例如: '--warning-mode all'
-#   COPY_OUT_DIR        若设置，将生成的 apk/aab 复制到该目录（会 mkdir -p）
+#   COPY_OUT_DIR        覆盖默认产物目录（仍会 mkdir -p）
 
 set -euo pipefail
 
 ROOT="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
 NWVPN="${ROOT}/apps/android/NWVPN"
+ARCHIVES_DEFAULT="${ROOT}/archives/android-nwvpn"
+OUT_DIR="${COPY_OUT_DIR:-${ARCHIVES_DEFAULT}}"
 GRADLEW="${NWVPN}/gradlew"
 
 if [[ ! -d "${NWVPN}" ]]; then
@@ -46,32 +50,41 @@ if [[ -n "${GRADLE_EXTRA_ARGS:-}" ]]; then
   extra=( ${GRADLE_EXTRA_ARGS} )
 fi
 
+# macOS /bin/bash 3.2 + set -u：空数组 "${extra[@]}" 会报 unbound variable，须分支展开。
+run_gradle() {
+  if ((${#extra[@]} > 0)); then
+    ./gradlew "$@" "${extra[@]}"
+  else
+    ./gradlew "$@"
+  fi
+}
+
 cd "${NWVPN}"
 
 case "${TASK}" in
   debug)
-    ./gradlew :app:assembleDebug "${extra[@]}" "$@"
+    run_gradle :app:assembleDebug "$@"
     echo ""
     echo "Debug APK:"
     find app/build/outputs/apk/debug -name '*.apk' -type f 2>/dev/null || true
     ;;
   release)
-    ./gradlew :app:assembleRelease "${extra[@]}" "$@"
+    run_gradle :app:assembleRelease "$@"
     echo ""
     echo "Release APK:"
     find app/build/outputs/apk/release -name '*.apk' -type f 2>/dev/null || true
     ;;
   bundle)
-    ./gradlew :app:bundleRelease "${extra[@]}" "$@"
+    run_gradle :app:bundleRelease "$@"
     echo ""
     echo "Release bundle:"
     find app/build/outputs/bundle/release -name '*.aab' -type f 2>/dev/null || true
     ;;
   clean)
-    ./gradlew clean "${extra[@]}" "$@"
+    run_gradle clean "$@"
     ;;
   all)
-    ./gradlew :app:assembleDebug :app:assembleRelease "${extra[@]}" "$@"
+    run_gradle :app:assembleDebug :app:assembleRelease "$@"
     echo ""
     find app/build/outputs/apk -name '*.apk' -type f 2>/dev/null || true
     ;;
@@ -82,10 +95,18 @@ case "${TASK}" in
     ;;
 esac
 
-if [[ -n "${COPY_OUT_DIR:-}" ]]; then
-  mkdir -p "${COPY_OUT_DIR}"
+if [[ "${TASK}" != "clean" ]]; then
+  mkdir -p "${OUT_DIR}"
+  copied=0
   while IFS= read -r -d '' f; do
-    cp -f "${f}" "${COPY_OUT_DIR}/"
-    echo "已复制: $(basename "${f}") -> ${COPY_OUT_DIR}/"
+    cp -f "${f}" "${OUT_DIR}/"
+    echo "已复制: $(basename "${f}") -> ${OUT_DIR}/"
+    copied=$((copied + 1))
   done < <(find app/build/outputs -type f \( -name '*.apk' -o -name '*.aab' \) -print0 2>/dev/null || true)
+  if [[ "${copied}" -eq 0 ]]; then
+    echo "提示: 未找到 apk/aab 可复制（检查构建是否成功）。" >&2
+  else
+    echo ""
+    echo "产物目录: ${OUT_DIR}"
+  fi
 fi
