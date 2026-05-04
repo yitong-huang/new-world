@@ -70,6 +70,10 @@ targets:
           if [ -f "$EXTRA" ]; then
             cp -f "$EXTRA" "${RES}/extra_direct_ipv4.txt"
           fi
+          SERVERS="${SRCROOT}/../../../configs/servers"
+          if [ -f "$SERVERS" ]; then
+            cp -f "$SERVERS" "${RES}/servers"
+          fi
           # SMAppService.daemon(plistName:) 要求 plist 位于 Contents/Library/LaunchDaemons/
           LD="${TARGET_BUILD_DIR}/${CONTENTS_FOLDER_PATH}/Library/LaunchDaemons"
           mkdir -p "${LD}"

@@ -79,7 +79,15 @@ final class TunnelController: ObservableObject {
         do {
             try await HelperInstaller.registerDaemonIfNeeded()
         } catch {
-            lastError = "注册特权助手失败：\(error.localizedDescription)。请在系统设置中允许 NewWorldVPN 的后台项后重试。"
+            let detail = error.localizedDescription
+            let hint: String
+            let lower = detail.lowercased()
+            if lower.contains("codesign") || lower.contains("code signing") || detail.contains("-67056") {
+                hint = "这通常由**应用未正确代码签名**引起（例如用 CODE_SIGNING_ALLOWED=NO 打包且未做 ad-hoc 签名）。请从源码重新执行打包脚本生成安装包，或在本机用 Xcode Archive + 有效证书签名后再安装。仅「系统设置 → 登录项/后台」无法绕过签名校验。"
+            } else {
+                hint = "请在系统设置 → 通用 → 登录项与扩展（或「登录项」）中允许 NewWorldVPN 的后台项后重试。"
+            }
+            lastError = "注册特权助手失败：\(detail)。\(hint)"
             statusText = "未连接"
             return
         }

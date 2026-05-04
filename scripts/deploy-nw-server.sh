@@ -24,6 +24,8 @@
 #   GOPROXY          传给远程 go build，默认 https://goproxy.cn,direct
 #   NW_DEPLOY_NAT    默认 1：在远程启用 net.ipv4.ip_forward + MASQUERADE（10.77.0.0/24）；设 0 跳过
 #   NW_TUN_CIDR      与 nw-server 虚拟网段一致，默认 10.77.0.0/24（NAT 源地址段）
+#   NW_SKIP_SYSTEMD  默认 0：远程为 root 且存在 systemctl 时，安装 systemd 单元并 enable（开机自启）；
+#                    设为 1 则仍用 nohup，不写 systemd。
 #
 set -euo pipefail
 
@@ -43,6 +45,7 @@ NW_GO_VERSION="${NW_GO_VERSION:-1.22.10}"
 GOPROXY="${GOPROXY:-https://goproxy.cn,direct}"
 NW_DEPLOY_NAT="${NW_DEPLOY_NAT:-1}"
 NW_TUN_CIDR="${NW_TUN_CIDR:-10.77.0.0/24}"
+NW_SKIP_SYSTEMD="${NW_SKIP_SYSTEMD:-0}"
 
 SSH_TARGET="${NW_SSH_USER}@${NW_DEPLOY_HOST}"
 
@@ -109,6 +112,7 @@ remote \
   "REMOTE_LISTEN=$NW_LISTEN" \
   "REMOTE_DEPLOY_NAT=$NW_DEPLOY_NAT" \
   "REMOTE_TUN_CIDR=$NW_TUN_CIDR" \
+  "REMOTE_SKIP_SYSTEMD=$NW_SKIP_SYSTEMD" \
   bash -s <<'REMOTE_SCRIPT'
 set -euo pipefail
 export PATH="/usr/local/go/bin:${PATH}"
@@ -231,24 +235,77 @@ setup_forward_and_nat() {
 }
 setup_forward_and_nat
 
-echo "==> 停止旧进程（若有）..."
+echo "==> 停止旧 nw-server（systemd / 手工进程）..."
+if command -v systemctl >/dev/null 2>&1 && [[ -f /etc/systemd/system/nwvpn-nw-server.service ]]; then
+  systemctl disable --now nwvpn-nw-server.service 2>/dev/null || true
+fi
 pkill -f "${REMOTE_DIR}/bin/nw-server" 2>/dev/null || true
 sleep 1
 
-echo "==> 启动 nw-server 监听 ${REMOTE_LISTEN} ..."
-nohup "${REMOTE_DIR}/bin/nw-server" \
-  -listen "${REMOTE_LISTEN}" \
-  -cert "${REMOTE_DIR}/certs/server.crt" \
-  -key "${REMOTE_DIR}/certs/server.key" \
-  >>"${REMOTE_DIR}/nw-server.log" 2>&1 &
-echo $! >"${REMOTE_DIR}/nw-server.pid"
-sleep 1
-if kill -0 "$(cat "${REMOTE_DIR}/nw-server.pid")" 2>/dev/null; then
-  echo "==> nw-server 已启动 PID=$(cat "${REMOTE_DIR}/nw-server.pid")"
+start_nw_server_nohup() {
+  echo "==> 启动 nw-server 监听 ${REMOTE_LISTEN} （nohup，无开机自启）..."
+  nohup "${REMOTE_DIR}/bin/nw-server" \
+    -listen "${REMOTE_LISTEN}" \
+    -cert "${REMOTE_DIR}/certs/server.crt" \
+    -key "${REMOTE_DIR}/certs/server.key" \
+    >>"${REMOTE_DIR}/nw-server.log" 2>&1 &
+  echo $! >"${REMOTE_DIR}/nw-server.pid"
+  sleep 1
+  if kill -0 "$(cat "${REMOTE_DIR}/nw-server.pid")" 2>/dev/null; then
+    echo "==> nw-server 已启动 PID=$(cat "${REMOTE_DIR}/nw-server.pid")"
+  else
+    echo "error: 进程未存活，请查看 ${REMOTE_DIR}/nw-server.log" >&2
+    tail -n 80 "${REMOTE_DIR}/nw-server.log" >&2 || true
+    exit 1
+  fi
+}
+
+install_nw_server_systemd() {
+  local unit=nwvpn-nw-server.service
+  local unit_path="/etc/systemd/system/${unit}"
+  echo "==> 安装 systemd 单元 ${unit}（开机自启）..."
+  cat >"${unit_path}" <<UNIT
+[Unit]
+Description=NewWorld nw-server (VPN)
+After=network-online.target
+Wants=network-online.target
+
+[Service]
+Type=simple
+WorkingDirectory=${REMOTE_DIR}
+ExecStart=${REMOTE_DIR}/bin/nw-server -listen ${REMOTE_LISTEN} -cert ${REMOTE_DIR}/certs/server.crt -key ${REMOTE_DIR}/certs/server.key
+Restart=on-failure
+RestartSec=3
+StandardOutput=append:${REMOTE_DIR}/nw-server.log
+StandardError=append:${REMOTE_DIR}/nw-server.log
+
+[Install]
+WantedBy=multi-user.target
+UNIT
+  chmod 644 "${unit_path}"
+  systemctl daemon-reload
+  systemctl enable --now "${unit}"
+  sleep 1
+  if systemctl is-active --quiet "${unit}"; then
+    echo "==> systemd: ${unit} 已运行（enabled，重启后自动拉起）"
+  else
+    echo "error: systemd 启动失败，请执行: journalctl -u ${unit} -n 50 --no-pager" >&2
+    systemctl status "${unit}" --no-pager -l >&2 || true
+    exit 1
+  fi
+}
+
+if [[ $(id -u) -eq 0 ]] && command -v systemctl >/dev/null 2>&1 && [[ "${REMOTE_SKIP_SYSTEMD:-0}" != "1" ]]; then
+  install_nw_server_systemd
 else
-  echo "error: 进程未存活，请查看 ${REMOTE_DIR}/nw-server.log" >&2
-  tail -n 80 "${REMOTE_DIR}/nw-server.log" >&2 || true
-  exit 1
+  if [[ "${REMOTE_SKIP_SYSTEMD:-0}" == "1" ]]; then
+    echo "==> 已设 REMOTE_SKIP_SYSTEMD=1，跳过 systemd"
+  elif [[ $(id -u) -ne 0 ]]; then
+    echo "warn: 非 root，无法安装 systemd 单元，改用 nohup（无开机自启）" >&2
+  else
+    echo "warn: 未找到 systemctl，改用 nohup（无开机自启）" >&2
+  fi
+  start_nw_server_nohup
 fi
 REMOTE_SCRIPT
 
@@ -256,3 +313,5 @@ echo ""
 echo "完成。客户端示例:"
 echo "  cd go && sudo ./nw-client -server ${NW_DEPLOY_HOST}:8443 -cacert ../certs/server.crt -split-default"
 echo "远程日志: ssh ${SSH_TARGET} 'tail -f ${NW_REMOTE_DIR}/nw-server.log'"
+echo "（若已用 systemd）状态: ssh ${SSH_TARGET} 'systemctl status nwvpn-nw-server --no-pager'"
+echo "（若已用 systemd）开机自启: systemctl is-enabled nwvpn-nw-server"

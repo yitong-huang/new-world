@@ -4,9 +4,32 @@ ROOT="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
 OUT="${ROOT}/certs"
 mkdir -p "$OUT"
 
-# subjectAltName：默认含本机调试名 + 线上主机名；可按 IP 连接时在环境变量里追加，例如：
+# subjectAltName：本机调试名 + configs/servers 中全部节点 host（第二列），多机共用一份 server 证书；
+# 增删节点后请重新执行本脚本并 rsync/部署 certs 到每台 nw-server。
+# 可按 IP 连接时在环境变量里追加，例如：
 #   NW_CERT_SAN_EXTRA=IP:43.108.59.224 bash scripts/gen-certs.sh
-SAN="DNS:localhost,IP:127.0.0.1,DNS:new-world-kr-01.2fish.com.cn"
+SAN="DNS:localhost,IP:127.0.0.1"
+SERVERS_FILE="${NW_SERVERS_FILE:-$ROOT/configs/servers}"
+if [[ -f "$SERVERS_FILE" ]]; then
+  exec 3<"$SERVERS_FILE"
+  while IFS= read -r line <&3 || [[ -n "$line" ]]; do
+    line="${line#"${line%%[![:space:]]*}"}"
+    line="${line%"${line##*[![:space:]]}"}"
+    [[ -z "$line" || "$line" == \#* ]] && continue
+    read -r _name host _extra <<<"$line"
+    [[ -z "${host:-}" ]] && continue
+    host="${host//$'\r'/}"
+    host="${host#"${host%%[![:space:]]*}"}"
+    host="${host%"${host##*[![:space:]]}"}"
+    [[ -z "$host" ]] && continue
+    SAN="${SAN},DNS:${host}"
+  done
+  exec 3<&-
+fi
+# 未配置 servers 或解析不到 host 时保留历史默认
+if [[ "$SAN" == "DNS:localhost,IP:127.0.0.1" ]]; then
+  SAN="${SAN},DNS:new-world-kr-01.2fish.com.cn"
+fi
 if [[ -n "${NW_CERT_SAN_EXTRA:-}" ]]; then
   SAN="${SAN},${NW_CERT_SAN_EXTRA}"
 fi

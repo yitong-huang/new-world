@@ -112,6 +112,29 @@ sudo .build/release/SimpleConnect
 
 同一仓库还提供菜单栏应用 **NewWorldVPN**（`nw-client` + 特权助手，不走 Network Extension），说明见 [`apps/macos/NewWorldVPN/README.md`](apps/macos/NewWorldVPN/README.md)。
 
+### NewWorldVPN：打包 macOS 安装包（`.pkg`）
+
+在仓库根目录执行（需已安装 **Xcode 命令行工具** 与 **xcodegen**：`brew install xcodegen`）：
+
+```bash
+./scripts/package-newworld-macos.sh
+```
+
+默认行为：
+
+- **`CODE_SIGNING_ALLOWED=NO`**：不依赖 Apple 开发证书打 Release；脚本会在打包前对 **`NewWorldVPN.app` 自动做 ad-hoc 签名**（`codesign -` + Hardened Runtime），否则安装后注册特权助手时会触发 **SMAppService 签名校验失败（约 -67056）**。
+- 输出目录：**`archives/macos/`**（例如 `archives/macos/NewWorldVPN-1.0.pkg`；版本号取自 `apps/macos/NewWorldVPN/project.yml` 的 `MARKETING_VERSION`）。
+- 对外分发（减少 Gatekeeper 提示、可公证）请使用 **`CODE_SIGNING_ALLOWED=YES`**（本机 Xcode 已登录开发者账号且 `project.yml` 中 `DEVELOPMENT_TEAM` 可用），并视需要配置 **Developer ID Installer** 签 `.pkg`。
+
+常用覆盖：
+
+```bash
+OUT=~/Desktop VERSION=1.0.1 ./scripts/package-newworld-macos.sh
+CODE_SIGNING_ALLOWED=YES ./scripts/package-newworld-macos.sh
+```
+
+更多环境变量（如 `DEVELOPER_INSTALLER_ID` 对 `.pkg` 做 Installer 签名）见脚本 [`scripts/package-newworld-macos.sh`](scripts/package-newworld-macos.sh) 顶部注释。`archives/` 已在 `.gitignore` 中忽略。
+
 ---
 
 ## 4. macOS：Xcode 应用 `NWVPN`（主应用 + Packet Tunnel）
@@ -192,6 +215,7 @@ gradle assembleDebug
 | ------ | ------ |
 | `scripts/gen-certs.sh` | 生成本地自签服务端/客户端证书 |
 | `scripts/deploy-nw-server.sh` | SSH 部署远程 `nw-server`（检查/安装 Go、同步、编译、后台启动） |
+| `scripts/package-newworld-macos.sh` | 将 `NewWorldVPN` 打成 Release 并生成安装到 `/Applications` 的 `.pkg`（默认输出 `archives/macos/`，默认 `CODE_SIGNING_ALLOWED=NO`） |
 | `scripts/fetch-china-routes.sh` | 更新 `china_ipv4.txt`（CN）与 `extra_direct_ipv4.txt`（HK+MO） |
 | `scripts/update-extra-direct-from-domains.sh` | 用国内 DNS 解析 `configs/direct_domains.txt`，将 A 记录 `/32` 合并进 `extra_direct_ipv4.txt` |
 | `docs/server-deploy.md` | 服务端部署、NAT、systemd、认证 |

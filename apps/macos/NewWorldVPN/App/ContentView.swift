@@ -6,6 +6,11 @@ private enum AuthPrefs {
     static let includeKey = "NewWorldVPN.auth.includeWhenConnecting"
 }
 
+private enum NodePrefs {
+    /// 选中节点的 `host`，与 `VPNServerEntry.id` 一致。
+    static let selectedHostKey = "NewWorldVPN.node.selectedHost"
+}
+
 struct ContentView: View {
     @EnvironmentObject private var tunnel: TunnelController
 
@@ -19,6 +24,9 @@ struct ContentView: View {
     @State private var chinaRoutesPath = ""
     @State private var extraDirectRoutesPath = ""
 
+    @State private var serverNodes: [VPNServerEntry] = []
+    @AppStorage(NodePrefs.selectedHostKey) private var selectedServerHost = ""
+
     private let circleSize: CGFloat = 128
     /// 与 `Toggle(.checkbox)` 左侧控件大致同宽，使「未配置」与「韩国」等标签文字左缘对齐
     private let checkboxColumnWidth: CGFloat = 22
@@ -29,9 +37,8 @@ struct ContentView: View {
         tunnel.isConnected ? "已连接" : "未连接"
     }
 
-    /// 目前仅韩国节点，固定使用该地址
-    private var serverAddress: String {
-        VPNNode.korea.serverAddress
+    private var selectedServerEntry: VPNServerEntry? {
+        VPNServerCatalog.entry(matchingSelectedHost: selectedServerHost, in: serverNodes)
     }
 
     private var hasSavedCredentials: Bool {
@@ -70,6 +77,8 @@ struct ContentView: View {
                             if tunnel.isConnected {
                                 await tunnel.disconnect()
                             } else {
+                                serverNodes = VPNServerCatalog.loadEntries()
+                                normalizeSelectedServerHost()
                                 let u: String
                                 let p: String
                                 if includeAuthWhenConnecting && hasSavedCredentials {
@@ -79,8 +88,9 @@ struct ContentView: View {
                                     u = ""
                                     p = ""
                                 }
+                                let addr = VPNServerCatalog.resolveServerAddress(selectedHost: selectedServerHost)
                                 await tunnel.connect(
-                                    serverAddress: serverAddress,
+                                    serverAddress: addr,
                                     username: u,
                                     password: p,
                                     caCertPath: resolvedCaPath(),
@@ -145,6 +155,8 @@ struct ContentView: View {
         )
         .onAppear {
             loadAuthFromDefaults()
+            serverNodes = VPNServerCatalog.loadEntries()
+            normalizeSelectedServerHost()
         }
         .onChange(of: useChinaDirect) { enabled in
             guard enabled else { return }
@@ -208,27 +220,62 @@ struct ContentView: View {
         .toggleStyle(.checkbox)
     }
 
-    /// 节点卡片：浅灰说明「节点」+ 与分流一致的韩国勾选行
+    /// 节点：默认列表第一项；点击打开浮动面板，列出全部 host 供选择并保存。
     private var nodeSection: some View {
         VStack(alignment: .leading, spacing: 8) {
             Text("节点")
                 .font(.caption)
                 .foregroundStyle(.secondary.opacity(0.85))
-            nodeDisplayRow
+            if serverNodes.isEmpty {
+                Text("未加载到节点列表")
+                    .font(.body)
+                    .foregroundStyle(.secondary)
+            } else {
+                nodeTriggerCard
+            }
         }
         .padding(12)
         .background(panelCardBackground)
     }
 
-    /// 与「分流」勾选行同一控件样式，保证左侧勾选框与文字对齐
-    private var nodeDisplayRow: some View {
-        Toggle(isOn: .constant(true)) {
-            Text("韩国")
-                .font(.body)
+    private var nodeStatusLine: String {
+        if let e = selectedServerEntry {
+            return "\(e.displayName) · \(e.host)"
         }
-        .toggleStyle(.checkbox)
-        .allowsHitTesting(false)
-        .frame(maxWidth: .infinity, alignment: .leading)
+        if let f = serverNodes.first {
+            return "\(f.displayName) · \(f.host)"
+        }
+        return ""
+    }
+
+    private var nodeTriggerCard: some View {
+        Button {
+            ServerNodeFloatingPanel.present(selectedHost: selectedServerHost) { host in
+                selectedServerHost = host
+            }
+        } label: {
+            HStack(alignment: .center, spacing: 10) {
+                Color.clear
+                    .frame(width: checkboxColumnWidth, height: 1)
+                Text(nodeStatusLine)
+                    .font(.callout)
+                    .multilineTextAlignment(.leading)
+                    .frame(maxWidth: .infinity, alignment: .leading)
+            }
+            .padding(.vertical, 6)
+            .padding(.horizontal, 8)
+            .frame(maxWidth: .infinity, alignment: .leading)
+            .background(
+                RoundedRectangle(cornerRadius: 6, style: .continuous)
+                    .fill(Color(nsColor: .controlBackgroundColor))
+            )
+            .overlay(
+                RoundedRectangle(cornerRadius: 6, style: .continuous)
+                    .strokeBorder(Color(nsColor: .separatorColor), lineWidth: 1)
+            )
+            .contentShape(Rectangle())
+        }
+        .buttonStyle(.plain)
     }
 
     private var authStatusLine: String {
@@ -306,6 +353,20 @@ struct ContentView: View {
         d.set(username, forKey: AuthPrefs.usernameKey)
         d.set(password, forKey: AuthPrefs.passwordKey)
         d.set(includeAuthWhenConnecting, forKey: AuthPrefs.includeKey)
+    }
+
+    private func normalizeSelectedServerHost() {
+        serverNodes = VPNServerCatalog.loadEntries()
+        let key = VPNServerCatalog.normalizeHostLookup(selectedServerHost)
+        if let match = serverNodes.first(where: { VPNServerCatalog.normalizeHostLookup($0.host) == key }) {
+            if selectedServerHost != match.host {
+                selectedServerHost = match.host
+            }
+            return
+        }
+        if let first = serverNodes.first {
+            selectedServerHost = first.host
+        }
     }
 
     private func resolvedNwClientPath() -> String {

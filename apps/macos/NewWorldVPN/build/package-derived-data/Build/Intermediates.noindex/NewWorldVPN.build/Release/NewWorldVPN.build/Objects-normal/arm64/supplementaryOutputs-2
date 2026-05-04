@@ -1,0 +1,12 @@
+{
+  "/Users/yitong/Projects/new_world/apps/macos/NewWorldVPN/App/AuthFloatingPanel.swift" : {
+    "abi-baseline-json" : "/Users/yitong/Projects/new_world/apps/macos/NewWorldVPN/build/package-derived-data/Build/Intermediates.noindex/NewWorldVPN.build/Release/NewWorldVPN.build/Objects-normal/arm64/NewWorldVPN.abi.json",
+    "const-values" : "/Users/yitong/Projects/new_world/apps/macos/NewWorldVPN/build/package-derived-data/Build/Intermediates.noindex/NewWorldVPN.build/Release/NewWorldVPN.build/Objects-normal/arm64/NewWorldVPN-primary.swiftconstvalues",
+    "dependencies" : "/Users/yitong/Projects/new_world/apps/macos/NewWorldVPN/build/package-derived-data/Build/Intermediates.noindex/NewWorldVPN.build/Release/NewWorldVPN.build/Objects-normal/arm64/NewWorldVPN-primary.d",
+    "diagnostics" : "/Users/yitong/Projects/new_world/apps/macos/NewWorldVPN/build/package-derived-data/Build/Intermediates.noindex/NewWorldVPN.build/Release/NewWorldVPN.build/Objects-normal/arm64/NewWorldVPN-primary.dia",
+    "objc-header" : "/Users/yitong/Projects/new_world/apps/macos/NewWorldVPN/build/package-derived-data/Build/Intermediates.noindex/NewWorldVPN.build/Release/NewWorldVPN.build/Objects-normal/arm64/NewWorldVPN-Swift.h",
+    "swiftdoc" : "/Users/yitong/Projects/new_world/apps/macos/NewWorldVPN/build/package-derived-data/Build/Intermediates.noindex/NewWorldVPN.build/Release/NewWorldVPN.build/Objects-normal/arm64/NewWorldVPN.swiftdoc",
+    "swiftmodule" : "/Users/yitong/Projects/new_world/apps/macos/NewWorldVPN/build/package-derived-data/Build/Intermediates.noindex/NewWorldVPN.build/Release/NewWorldVPN.build/Objects-normal/arm64/NewWorldVPN.swiftmodule",
+    "swiftsourceinfo" : "/Users/yitong/Projects/new_world/apps/macos/NewWorldVPN/build/package-derived-data/Build/Intermediates.noindex/NewWorldVPN.build/Release/NewWorldVPN.build/Objects-normal/arm64/NewWorldVPN.swiftsourceinfo"
+  }
+}
