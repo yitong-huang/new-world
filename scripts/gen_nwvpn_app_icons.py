@@ -1,6 +1,9 @@
 #!/usr/bin/env python3
 """从设计稿几何生成 NWVPN / NewWorldVPN App Icon PNG（Pillow），并写入 BrickWallMark 矢量图集。
 
+同时写入 **Android NWVPN** 各密度 `mipmap-*` 下的 `ic_launcher.png` / `ic_launcher_round.png`
+（与 iOS `AppIcon-1024`、macOS AppIcon 同源几何 `draw_app_icon`），供 `AndroidManifest` 引用。
+
 NewWorldVPN 菜单栏使用两套**非模板**小 PNG（已连接浅色 / 未连接灰色），避免 `MenuBarExtra` 里模板图无法按 foreground 区分颜色。
 """
 from __future__ import annotations
@@ -106,6 +109,27 @@ def draw_menubar_brick(
 def save_png(img: Image.Image, path: Path) -> None:
     path.parent.mkdir(parents=True, exist_ok=True)
     img.save(path, "PNG")
+
+
+# Android launcher：标准 launcher 图标 dp 像素（mdpi=1x）
+ANDROID_LAUNCHER_MIPMAPS: list[tuple[str, int]] = [
+    ("mipmap-mdpi", 48),
+    ("mipmap-hdpi", 72),
+    ("mipmap-xhdpi", 96),
+    ("mipmap-xxhdpi", 144),
+    ("mipmap-xxxhdpi", 192),
+]
+
+
+def write_android_nwvpn_launcher_icons(root: Path) -> None:
+    """`apps/android/NWVPN/.../res`：与 iOS / macOS 同一套砖墙 App Icon。"""
+    res = root / "apps/android/NWVPN/app/src/main/res"
+    for folder, dim in ANDROID_LAUNCHER_MIPMAPS:
+        d = res / folder
+        d.mkdir(parents=True, exist_ok=True)
+        img = draw_app_icon(dim)
+        save_png(img, d / "ic_launcher.png")
+        save_png(img, d / "ic_launcher_round.png")
 
 
 # macOS AppIcon.appiconset 标准 10 槽（与 Xcode / design 一致）
@@ -255,6 +279,8 @@ def main() -> None:
     write_mac_app_icon_set(mac_icon)
     write_mac_app_icon_set(newworld_icon)
 
+    write_android_nwvpn_launcher_icons(root)
+
     print(
         "Wrote",
         ios_icon,
@@ -262,6 +288,8 @@ def main() -> None:
         mac_icon,
         ",",
         newworld_icon,
+        ",",
+        root / "apps/android/NWVPN/app/src/main/res/mipmap-*",
         "and NewWorldVPN MenuBarBrick* / NWVPN BrickWallMark imagesets",
     )
 

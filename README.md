@@ -187,7 +187,8 @@ swift test
 
 ## 7. Android
 
-本仓库 `android/` 为 Gradle Kotlin DSL 工程。若目录下尚无 `gradlew`，可用 Android Studio 打开 **`android`** 同步后构建，或在已安装 Gradle 的前提下于 `android/` 执行：
+- **`apps/android/NWVPN/`**：与 iOS 主界面类似的 **Jetpack Compose** 客户端（节点、认证、分流开关、状态行连断），说明见 [`apps/android/NWVPN/README.md`](apps/android/NWVPN/README.md)。
+- **`android/`**：最小 Gradle Kotlin DSL 示例（协议 + `VpnService`），便于单独联调。若目录下尚无 `gradlew`，可用 Android Studio 打开对应目录同步后构建，或在已安装 Gradle 的前提下执行：
 
 ```bash
 cd android
@@ -196,7 +197,7 @@ gradle assembleDebug
 # ./gradlew assembleDebug
 ```
 
-调试包一般在 `android/app/build/outputs/apk/debug/` 下（常见文件名为 `app-debug.apk`，以 Gradle 输出为准）。
+调试包一般在各工程的 `app/build/outputs/apk/debug/` 下（文件名以 Gradle 输出为准）。
 
 ---
 

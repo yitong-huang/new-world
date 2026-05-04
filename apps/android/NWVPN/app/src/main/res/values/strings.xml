@@ -1,0 +1,7 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <string name="app_name">NewWorld VPN</string>
+    <string name="vpn_notification_channel">VPN</string>
+    <string name="vpn_notification_channel_desc">隧道连接状态</string>
+    <string name="vpn_notification_title">NewWorld VPN</string>
+</resources>

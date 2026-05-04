@@ -30,6 +30,13 @@ android/local.properties
 android/*.iml
 android/.idea/
 
+apps/android/NWVPN/.gradle/
+apps/android/NWVPN/build/
+apps/android/NWVPN/**/build/
+apps/android/NWVPN/local.properties
+apps/android/NWVPN/*.iml
+apps/android/NWVPN/.idea/
+
 # IDE
 .idea/
 .cursor/*.log
