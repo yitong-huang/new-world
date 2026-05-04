@@ -1,4 +1,9 @@
 name: NWVPNiOS
+schemes:
+  NWVPNiOS:
+    build:
+      targets:
+        NWVPNiOS: all
 options:
   bundleIdPrefix: com.newworld
   deploymentTarget:
@@ -16,6 +21,17 @@ targets:
     platform: iOS
     sources:
       - path: App
+    postBuildScripts:
+      - name: Embed configs servers list
+        script: |
+          set -e
+          SRC="${SRCROOT}/../../../configs/servers"
+          APP="${BUILT_PRODUCTS_DIR}/${WRAPPER_NAME}"
+          mkdir -p "${APP}"
+          if [[ -f "${SRC}" ]]; then
+            cp -f "${SRC}" "${APP}/servers"
+          fi
+        basedOnDependencyAnalysis: false
     settings:
       base:
         PRODUCT_BUNDLE_IDENTIFIER: com.newworld.NWVPNiOS
@@ -28,6 +44,17 @@ targets:
         TARGETED_DEVICE_FAMILY: "1"
     entitlements:
       path: App/NWVPN.entitlements
+    postBuildScripts:
+      - name: Embed configs servers list
+        script: |
+          set -e
+          SRC="${SRCROOT}/../../../configs/servers"
+          APP="${TARGET_BUILD_DIR}/${FULL_PRODUCT_NAME}"
+          mkdir -p "${APP}"
+          if [[ -f "$SRC" ]]; then
+            cp -f "$SRC" "${APP}/servers"
+          fi
+        basedOnDependencyAnalysis: false
     dependencies:
       - target: NWVPNiOSPacketTunnel
         embed: true

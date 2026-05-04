@@ -47,18 +47,23 @@ simple-connect/.build/
 **/DerivedData/
 **/.derivedData/
 **/.derivedDataRelease/
+*.xcresult/
+*.xcarchive/
 
-# NWVPN 本地产物
+# NWVPN / NewWorldVPN 本地产物（含 xcodebuild、package 脚本写入的 derived data）
 apps/macos/NWVPN/build/
 apps/macos/NWVPN/*.app
 apps/macos/NWVPN/*.systemextension
+apps/macos/NWVPN/NWVPN.xcodeproj/
+apps/macos/NewWorldVPN/build/
+apps/macos/NewWorldVPN/NewWorldVPN.xcodeproj/
+
+# iOS（XcodeGen：保留 project.yml）
+apps/ios/NWVPN/build/
+apps/ios/NWVPN/NWVPNiOS.xcodeproj/
 
 # 本地归档产物
 archives/
-
-# XcodeGen 生成的工程（保留 project.yml，运行 xcodegen generate）
-apps/macos/NWVPN/NWVPN.xcodeproj/
-apps/macos/NewWorldVPN/NewWorldVPN.xcodeproj/
 
 # 本地环境变量与密钥文件（勿提交真实配置）
 .env

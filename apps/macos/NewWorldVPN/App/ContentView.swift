@@ -1,3 +1,4 @@
+import AppKit
 import SwiftUI
 
 private enum AuthPrefs {
@@ -136,6 +137,14 @@ struct ContentView: View {
                     .help(tunnel.isConnected ? "点击断开" : "点击连接")
                     Spacer(minLength: 0)
                 }
+
+                Button("退出") {
+                    NSApplication.shared.terminate(nil)
+                }
+                .buttonStyle(.plain)
+                .font(.callout)
+                .foregroundStyle(.secondary)
+                .padding(.top, 4)
             }
             .padding(.top, 12)
             .padding(.bottom, 20)

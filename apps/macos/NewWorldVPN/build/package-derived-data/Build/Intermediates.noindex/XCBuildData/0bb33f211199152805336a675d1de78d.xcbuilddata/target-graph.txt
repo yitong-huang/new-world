@@ -1,4 +1,0 @@
-Target dependency graph (2 targets)
-Target 'NewWorldVPN' in project 'NewWorldVPN'
-➜ Explicit dependency on target 'NewWorldVPNHelper' in project 'NewWorldVPN'
-Target 'NewWorldVPNHelper' in project 'NewWorldVPN' (no dependencies)

@@ -4,6 +4,8 @@ import NetworkExtension
 @MainActor
 final class VPNManager: ObservableObject {
     @Published private(set) var statusText = "加载中…"
+    /// 与系统 VPN 连接状态一致，供界面着色（红/蓝）与点击切换。
+    @Published private(set) var neConnectionStatus: NEVPNStatus = .invalid
     @Published var lastError: String?
     /// 正在 save/load 偏好并拉起隧道时设为 true，避免连点触发多路 NE 并发（Console 会看到扩展、保存配置各出现多份）。
     @Published private(set) var tunnelConfigurationBusy = false
@@ -47,8 +49,14 @@ final class VPNManager: ObservableObject {
             Task { @MainActor in
                 guard let self else { return }
                 if let error {
-                    self.lastError = error.localizedDescription
                     self.statusText = "偏好设置错误"
+                    var msg = error.localizedDescription
+                    let n = error as NSError
+                    let readWriteFailed = (n.domain == NEVPNErrorDomain && n.code == NEVPNError.configurationReadWriteFailed.rawValue)
+                    if readWriteFailed || msg.localizedCaseInsensitiveContains("permission") {
+                        msg += "。请确认主 App 与 PacketTunnel 的 entitlements 已包含 packet-tunnel-provider，且 Apple Developer 中两个 App ID 已开启 Network Extensions（Packet Tunnel）并重新下载描述文件/用 Xcode 自动签名。"
+                    }
+                    self.lastError = msg
                     return
                 }
                 self.manager = managers?.first as? NETunnelProviderManager
@@ -59,6 +67,7 @@ final class VPNManager: ObservableObject {
 
     /// 与系统「设置 → VPN」相同的数据源：`NEVPNConnection.status`。断开时用 `fetchLastDisconnectError` 拉扩展返回的 NSError（iOS 16+）。
     private func updateStatusLabel(_ s: NEVPNStatus, connection: NEVPNConnection? = nil) {
+        neConnectionStatus = s
         let conn = connection ?? manager?.connection
         switch s {
         case .connected:
