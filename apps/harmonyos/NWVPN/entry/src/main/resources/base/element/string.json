@@ -1,0 +1,28 @@
+{
+  "string": [
+    {
+      "name": "module_desc",
+      "value": "NewWorld VPN 入口模块"
+    },
+    {
+      "name": "EntryAbility_desc",
+      "value": "NewWorld VPN"
+    },
+    {
+      "name": "EntryAbility_label",
+      "value": "NewWorld VPN"
+    },
+    {
+      "name": "VpnTunnelAbility_desc",
+      "value": "VPN 隧道扩展（协议需与 Go nw-client 对齐）"
+    },
+    {
+      "name": "perm_internet_reason",
+      "value": "连接 VPN 服务器"
+    },
+    {
+      "name": "perm_netinfo_reason",
+      "value": "读取网络状态以建立隧道"
+    }
+  ]
+}

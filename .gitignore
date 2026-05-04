@@ -62,6 +62,11 @@ apps/macos/NewWorldVPN/NewWorldVPN.xcodeproj/
 apps/ios/NWVPN/build/
 apps/ios/NWVPN/NWVPNiOS.xcodeproj/
 
+# 鸿蒙（hvigor / ohpm）
+apps/harmonyos/**/build/
+apps/harmonyos/**/.hvigor/
+apps/harmonyos/**/oh_modules/
+
 # 本地归档产物
 archives/
 
