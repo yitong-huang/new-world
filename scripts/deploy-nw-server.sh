@@ -11,13 +11,14 @@
 #
 # 用法（在仓库根目录执行）：
 #   bash scripts/deploy-nw-server.sh
-# SSH 密码：优先使用脚本内「凭据区」的 DEPLOY_SSH_PASSWORD；未填则用环境变量 NW_SSH_PASSWORD；
+# SSH 密码：NW_DEPLOY_FORCE_PASSWORD（若设）> 脚本内 DEPLOY_SSH_PASSWORD > 环境变量 NW_SSH_PASSWORD；
 # 都未设则走 SSH 公钥免密。密码模式需本机安装 sshpass（brew / apt）。
 #
 # 环境变量（可选）：
 #   NW_DEPLOY_HOST   默认 new-world-kr-01.2fish.com.cn
 #   NW_SSH_USER      默认 root
 #   NW_SSH_PASSWORD  与脚本内密码二选一；勿将含密码的脚本提交到 git
+#   NW_DEPLOY_FORCE_PASSWORD  若设置，优先于脚本内 DEPLOY_SSH_PASSWORD（供 wg-chain 等对多主机分别传密）
 #   NW_REMOTE_DIR    远程安装目录，默认 /opt/nwvpn
 #   NW_LISTEN        监听地址，默认 0.0.0.0:8443
 #   NW_GO_VERSION    自动安装 Go 的版本，默认 1.22.10（须 >= go.mod 的 1.22）
@@ -49,7 +50,8 @@ NW_SKIP_SYSTEMD="${NW_SKIP_SYSTEMD:-0}"
 
 SSH_TARGET="${NW_SSH_USER}@${NW_DEPLOY_HOST}"
 
-NW_SSH_PASSWORD_EFFECTIVE="${DEPLOY_SSH_PASSWORD:-${NW_SSH_PASSWORD:-}}"
+# NW_DEPLOY_FORCE_PASSWORD：供 wg-chain 等脚本覆盖内联密码（每主机不同密码时必设）
+NW_SSH_PASSWORD_EFFECTIVE="${NW_DEPLOY_FORCE_PASSWORD:-${DEPLOY_SSH_PASSWORD:-${NW_SSH_PASSWORD:-}}}"
 
 if [[ ! -d "$ROOT/go" ]]; then
   echo "error: 未找到 $ROOT/go，请在仓库根目录执行本脚本" >&2

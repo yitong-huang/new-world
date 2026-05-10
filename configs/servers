@@ -1,3 +1,4 @@
 # 每行：展示名 主机（不要写端口，客户端与部署脚本会统一使用 8443）
 韩国 new-world-kr-01.2fish.com.cn
-美国 new-world-us-01.2fish.com.cn
+美国 new-world-us-01-real.2fish.com.cn
+美国跳板 new-world-us-01.2fish.com.cn
