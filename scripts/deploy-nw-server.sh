@@ -4,7 +4,7 @@
 # 适配说明（含 Ubuntu 24.04 LTS）：
 #   - 远程：须为 Linux x86_64 或 arm64/aarch64；使用官方 Go linux tarball 安装到 /usr/local/go。
 #   - 远程编译使用 CGO_ENABLED=0，无需安装 build-essential（nw-server 依赖纯 Go TUN，已在 linux/amd64 + CGO=0 下验证可编译）。
-#   - 远程需：openssh-server、rsync、curl 或 wget、tar；常见云镜像若缺 rsync：sudo apt install -y rsync
+#   - 远程需：openssh-server、rsync、curl 或 wget、tar；缺 rsync 时脚本会尝试 sudo apt update && sudo apt install -y rsync（Debian/Ubuntu）
 #   - 执行本脚本的机器：需 bash、ssh、rsync（在 Ubuntu 24.04 上：sudo apt install -y openssh-client rsync）
 #
 # 证书：本机 `bash scripts/gen-certs.sh` 生成的整个 certs/ 目录原样 rsync 到远程（含 client 等）；nw-server 仅用 server.crt + server.key。
@@ -90,7 +90,14 @@ echo "==> 目标: $SSH_TARGET"
 echo "==> 远程目录: $NW_REMOTE_DIR"
 
 if ! remote 'command -v rsync >/dev/null 2>&1'; then
-  echo "error: 远程主机未安装 rsync（rsync 通过 SSH 在远端需要该命令）。Ubuntu 24.04 示例: sudo apt update && sudo apt install -y rsync" >&2
+  echo "==> 远程未检测到 rsync，尝试: sudo apt update && sudo apt install -y rsync ..."
+  if ! remote 'sudo apt update && sudo apt install -y rsync'; then
+    echo "error: 远程安装 rsync 失败（可能非 Debian/Ubuntu 或未配置 sudo）。请在本机可 SSH 登录后手动安装 rsync 再重试。" >&2
+    exit 1
+  fi
+fi
+if ! remote 'command -v rsync >/dev/null 2>&1'; then
+  echo "error: 远程仍未找到 rsync（apt 安装后仍不可用）。请检查 PATH 或换用发行版对应包管理器手动安装。" >&2
   exit 1
 fi
 

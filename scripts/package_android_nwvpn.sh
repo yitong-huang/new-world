@@ -13,6 +13,7 @@
 # 产物默认复制到仓库根下 archives/android-nwvpn/（目录在 .gitignore 中）。
 #
 # 可选环境变量:
+#   JAVA_HOME           覆盖 Gradle 使用的 JDK；macOS 打包时脚本会优先固定为 JDK 21
 #   GRADLE_EXTRA_ARGS   追加到 gradlew 的参数，例如: '--warning-mode all'
 #   COPY_OUT_DIR        覆盖默认产物目录（仍会 mkdir -p）
 
@@ -37,6 +38,13 @@ fi
 if [[ -n "${ANDROID_HOME:-}" ]] && [[ ! -d "${ANDROID_HOME}" ]]; then
   echo "error: ANDROID_HOME 指向不存在的目录: ${ANDROID_HOME}" >&2
   exit 1
+fi
+
+if [[ "$(uname -s)" == "Darwin" ]] && command -v /usr/libexec/java_home >/dev/null 2>&1; then
+  JAVA_HOME="$(/usr/libexec/java_home -v 21 2>/dev/null || true)"
+  if [[ -n "${JAVA_HOME}" ]]; then
+    export JAVA_HOME
+  fi
 fi
 
 TASK="${1:-debug}"
