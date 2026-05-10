@@ -21,17 +21,9 @@ targets:
     platform: iOS
     sources:
       - path: App
-    postBuildScripts:
-      - name: Embed configs servers list
-        script: |
-          set -e
-          SRC="${SRCROOT}/../../../configs/servers"
-          APP="${BUILT_PRODUCTS_DIR}/${WRAPPER_NAME}"
-          mkdir -p "${APP}"
-          if [[ -f "${SRC}" ]]; then
-            cp -f "${SRC}" "${APP}/servers"
-          fi
-        basedOnDependencyAnalysis: false
+        excludes:
+          # 避免 .entitlements 进资源/编译阶段与 CODE_SIGN_ENTITLEMENTS 重复处理 → “modified during the build”
+          - "**/*.entitlements"
     settings:
       base:
         PRODUCT_BUNDLE_IDENTIFIER: com.newworld.NWVPNiOS
@@ -42,8 +34,6 @@ targets:
         INFOPLIST_KEY_UIRequiresFullScreen: true
         INFOPLIST_KEY_UISupportedInterfaceOrientations_iPhone: UIInterfaceOrientationPortrait
         TARGETED_DEVICE_FAMILY: "1"
-    entitlements:
-      path: App/NWVPN.entitlements
     postBuildScripts:
       - name: Embed configs servers list
         script: |
@@ -64,11 +54,11 @@ targets:
     platform: iOS
     sources:
       - path: Extension
+        excludes:
+          - "**/*.entitlements"
     settings:
       base:
         PRODUCT_BUNDLE_IDENTIFIER: com.newworld.NWVPNiOS.PacketTunnel
         CODE_SIGN_ENTITLEMENTS: Extension/PacketTunnel.entitlements
         INFOPLIST_FILE: Extension/Info.plist
         TARGETED_DEVICE_FAMILY: "1"
-    entitlements:
-      path: Extension/PacketTunnel.entitlements

@@ -7,7 +7,8 @@ import Security
 
 open class PacketTunnelProvider: NEPacketTunnelProvider {
     /// iOS 对 `excludedRoutes` 体量很敏感；过大时 `setTunnelNetworkSettings` 易失败并表现为 “internal error”。
-    private static let maxExcludedRoutes = 512
+    /// 实测 512 仍偶发失败，收紧到 128；若仍失败会再尝试仅排除 VPN 服务器（见 `handshakeAndRun`）。
+    private static let maxExcludedRoutes = 128
     private let logger = Logger(subsystem: "com.newworld.nwvpn.ios", category: "PacketTunnel")
     /// 与 `NWConnection.start(queue:)` 一致；send/receive 的 completion 也在此队列上触发。
     private let nwQueue = DispatchQueue(label: "com.newworld.NWVPNiOS.PacketTunnel.nw")
@@ -30,6 +31,18 @@ open class PacketTunnelProvider: NEPacketTunnelProvider {
     private var nwRecvPrefetchedChunks: [Data] = []
     /// 与 `NWConnection.receive` 的 completion 对齐；重连/`stopTunnel` 时递增，丢弃过期回调以免误配对 waiter。
     private var nwRecvEpoch: UInt64 = 0
+    private var memorySampleTask: Task<Void, Never>?
+
+    private let relayStatsLock = NSLock()
+    private var relayUpPackets: UInt64 = 0
+    private var relayDownPackets: UInt64 = 0
+    private var relayUpBytes: UInt64 = 0
+    private var relayDownBytes: UInt64 = 0
+    private var relayMaxRxBufferBytes: Int = 0
+    private var relaySelfTunnelPackets: UInt64 = 0
+    private var relaySelfTunnelBytes: UInt64 = 0
+    private var serverIPv4ForLoopCheck: String?
+    private var serverPortForLoopCheck: UInt16 = 0
 
     private let startTunnelCompletionLock = NSLock()
     private var didReportStartTunnelCompletion = false
@@ -52,12 +65,16 @@ open class PacketTunnelProvider: NEPacketTunnelProvider {
               let addr = proto.serverAddress
         else {
             logger.error("startTunnel failed: missing serverAddress")
+            // #region agent log
+            AgentDebugLog.log(hypothesisId: "H3", location: "PacketTunnelProvider.startTunnel", message: "missing_serverAddress", data: [:])
+            // #endregion
             invokeStartTunnelCompletionOnMain(handler: completionHandler, error: NSError(domain: "NWTunnel", code: 1, userInfo: [NSLocalizedDescriptionKey: "missing serverAddress"]))
             return
         }
         let parts = addr.split(separator: ":")
         let host = String(parts[0])
         let port: UInt16 = parts.count > 1 ? UInt16(parts[1]) ?? 8443 : 8443
+        serverPortForLoopCheck = port
 
         let tls = NWProtocolTLS.Options()
         sec_protocol_options_set_verify_block(
@@ -74,6 +91,19 @@ open class PacketTunnelProvider: NEPacketTunnelProvider {
         let endpoint = NWEndpoint.hostPort(host: NWEndpoint.Host(host), port: nwPort)
 
         let tunnelGen = bumpWireGeneration()
+        // #region agent log
+        AgentDebugLog.log(
+            hypothesisId: "H3",
+            location: "PacketTunnelProvider.startTunnel",
+            message: "begin",
+            data: [
+                "host": host,
+                "port": String(port),
+                "wireGen": String(tunnelGen),
+                "serverAddress": addr,
+            ],
+        )
+        // #endregion
 
         connection?.cancel()
         connection = nil
@@ -88,12 +118,15 @@ open class PacketTunnelProvider: NEPacketTunnelProvider {
             self.nwHandshakeBegunGeneration = 0
             self.handshakeBootstrapTask?.cancel()
             self.handshakeBootstrapTask = nil
+            self.memorySampleTask?.cancel()
+            self.memorySampleTask = nil
             self.nwRecvCancelAll(reason: NSError(domain: "NWTunnel", code: 6, userInfo: [NSLocalizedDescriptionKey: "tunnel restarted"]))
         }
 
         startTunnelCompletionLock.lock()
         didReportStartTunnelCompletion = false
         startTunnelCompletionLock.unlock()
+        startMemorySampling()
 
         conn.stateUpdateHandler = { [weak self] state in
             guard let self else { return }
@@ -110,6 +143,14 @@ open class PacketTunnelProvider: NEPacketTunnelProvider {
                     self.nwHandshakeBegunGeneration = tunnelGen
                     self.handshakeBootstrapTask?.cancel()
                     self.logger.info("NWConnection ready, start handshake")
+                    // #region agent log
+                    AgentDebugLog.log(
+                        hypothesisId: "H2",
+                        location: "PacketTunnelProvider.NWConnection.state",
+                        message: "ready",
+                        data: ["wireGen": String(tunnelGen)],
+                    )
+                    // #endregion
                     self.handshakeBootstrapTask = Task {
                         await self.handshakeAndRun(wireGen: tunnelGen, completionHandler: completionHandler)
                     }
@@ -119,6 +160,17 @@ open class PacketTunnelProvider: NEPacketTunnelProvider {
                     return
                 }
                 self.logger.error("NWConnection failed: \(err.localizedDescription, privacy: .public)")
+                // #region agent log
+                AgentDebugLog.log(
+                    hypothesisId: "H2",
+                    location: "PacketTunnelProvider.NWConnection.state",
+                    message: "failed",
+                    data: [
+                        "desc": err.localizedDescription,
+                        "wireGen": String(tunnelGen),
+                    ],
+                )
+                // #endregion
                 self.startTunnelCompletionLock.lock()
                 let already = self.didReportStartTunnelCompletion
                 self.startTunnelCompletionLock.unlock()
@@ -130,6 +182,17 @@ open class PacketTunnelProvider: NEPacketTunnelProvider {
             case .waiting(let err):
                 guard self.currentWireGeneration() == tunnelGen else { return }
                 self.logger.error("NWConnection waiting: \(err.localizedDescription, privacy: .public)")
+                // #region agent log
+                AgentDebugLog.log(
+                    hypothesisId: "H2",
+                    location: "PacketTunnelProvider.NWConnection.state",
+                    message: "waiting",
+                    data: [
+                        "desc": err.localizedDescription,
+                        "wireGen": String(tunnelGen),
+                    ],
+                )
+                // #endregion
             default:
                 break
             }
@@ -145,6 +208,19 @@ open class PacketTunnelProvider: NEPacketTunnelProvider {
             defer { self.startTunnelCompletionLock.unlock() }
             guard !self.didReportStartTunnelCompletion else { return }
             self.didReportStartTunnelCompletion = true
+            // #region agent log
+            let n = error as NSError?
+            AgentDebugLog.log(
+                hypothesisId: "H3",
+                location: "PacketTunnelProvider.invokeStartTunnelCompletionOnMain",
+                message: error == nil ? "completion_ok" : "completion_error",
+                data: [
+                    "desc": error?.localizedDescription ?? "",
+                    "domain": n?.domain ?? "",
+                    "code": n.map { String($0.code) } ?? "",
+                ],
+            )
+            // #endregion
             handler(error)
         }
         if Thread.isMainThread {
@@ -154,13 +230,23 @@ open class PacketTunnelProvider: NEPacketTunnelProvider {
         }
     }
 
-    open override func stopTunnel(with _: NEProviderStopReason, completionHandler: @escaping () -> Void) {
+    open override func stopTunnel(with reason: NEProviderStopReason, completionHandler: @escaping () -> Void) {
+        // #region agent log
+        AgentDebugLog.log(
+            hypothesisId: "H4",
+            location: "PacketTunnelProvider.stopTunnel",
+            message: "called",
+            data: ["reason": String(reason.rawValue)],
+        )
+        // #endregion
         _ = bumpWireGeneration()
         nwQueue.sync { [weak self] in
             guard let self else { return }
             self.nwRecvEpoch &+= 1
             self.handshakeBootstrapTask?.cancel()
             self.handshakeBootstrapTask = nil
+            self.memorySampleTask?.cancel()
+            self.memorySampleTask = nil
             self.nwHandshakeBegunGeneration = 0
             self.nwRecvCancelAll(reason: NSError(domain: "NWTunnel", code: 7, userInfo: [NSLocalizedDescriptionKey: "tunnel stopped"]))
         }
@@ -219,6 +305,18 @@ open class PacketTunnelProvider: NEPacketTunnelProvider {
         }
         nwRecvInFlight = false
         if let nwErr {
+            // #region agent log
+            AgentDebugLog.log(
+                hypothesisId: "H4",
+                location: "PacketTunnelProvider.nwRecvHandleReceiveCompletion",
+                message: "receive_error",
+                data: [
+                    "desc": nwErr.localizedDescription,
+                    "epoch": String(nwRecvEpoch),
+                    "tickets": String(nwRecvTickets.count),
+                ],
+            )
+            // #endregion
             nwRecvCancelAll(reason: nwErr)
             return
         }
@@ -233,6 +331,18 @@ open class PacketTunnelProvider: NEPacketTunnelProvider {
             return
         }
         if isComplete {
+            // #region agent log
+            AgentDebugLog.log(
+                hypothesisId: "H4",
+                location: "PacketTunnelProvider.nwRecvHandleReceiveCompletion",
+                message: "receive_complete",
+                data: [
+                    "epoch": String(nwRecvEpoch),
+                    "tickets": String(nwRecvTickets.count),
+                    "contentBytes": String(content?.count ?? 0),
+                ],
+            )
+            // #endregion
             nwRecvCancelAll(
                 reason: NSError(domain: "NWTunnel", code: 5, userInfo: [NSLocalizedDescriptionKey: "TLS closed before frame"]),
             )
@@ -297,50 +407,65 @@ open class PacketTunnelProvider: NEPacketTunnelProvider {
             if handshakeSuperseded(wireGen: wireGen, completionHandler: completionHandler) { return }
             guard asg.type == .assignTunnel else { throw NSError(domain: "NWTunnel", code: 4, userInfo: nil) }
             let tun = try NwFraming.decodeAssignTunnel(asg.payload)
-            let tunIP = Self.ipv4String(tun.ipv4)
-
-            let ipv4 = NEIPv4Settings(addresses: [tunIP], subnetMasks: ["255.255.255.255"])
-            ipv4.includedRoutes = [NEIPv4Route.default()]
-            var excludedRoutes: [NEIPv4Route] = []
-            if chinaDirectEnabled {
-                let rs = loadDirectBypassRoutes()
-                logger.info("excluded routes count=\(rs.count)")
-                excludedRoutes.append(contentsOf: rs)
-            }
-            if let serverIPv4 = currentServerIPv4(conn) {
-                excludedRoutes.append(NEIPv4Route(destinationAddress: serverIPv4, subnetMask: "255.255.255.255"))
-                logger.info("exclude vpn server host route=\(serverIPv4, privacy: .public)")
-            } else {
-                logger.error("cannot resolve server IPv4 from currentPath, may loop after default route")
-            }
-            if !excludedRoutes.isEmpty {
-                ipv4.excludedRoutes = excludedRoutes
-            }
-            var dns: [String] = []
-            for d in tun.dns { dns.append(Self.ipv4String(d)) }
-            let dnsSettings = NEDNSSettings(servers: dns.isEmpty ? ["8.8.8.8"] : dns)
-            // 不设 matchDomains：Apple 文档写明非 nil 时 DNS 仅用于所列域；`[""]` 可能被判无效并导致设置失败。
-
-            let settings = NEPacketTunnelNetworkSettings(tunnelRemoteAddress: "10.77.0.1")
-            settings.ipv4Settings = ipv4
-            settings.dnsSettings = dnsSettings
-            settings.mtu = NSNumber(value: 1400)
-
             if handshakeSuperseded(wireGen: wireGen, completionHandler: completionHandler) { return }
 
-            try await withCheckedThrowingContinuation { (cont: CheckedContinuation<Void, Error>) in
-                setTunnelNetworkSettings(settings) { err in
-                    if let err {
-                        self.logger.error("setTunnelNetworkSettings failed: \(err.localizedDescription, privacy: .public)")
-                        cont.resume(throwing: err)
-                        return
+            let vpnServerHostname = Self.vpnServerHost(fromServerAddress: (self.protocolConfiguration as? NETunnelProviderProtocol)?.serverAddress)
+            var includeChinaTables = chinaDirectEnabled
+            let maxSettingsAttempts = chinaDirectEnabled ? 2 : 1
+            for attempt in 0 ..< maxSettingsAttempts {
+                if handshakeSuperseded(wireGen: wireGen, completionHandler: completionHandler) { return }
+                let (settings, exCount) = buildTunnelNetworkSettings(
+                    tun: tun,
+                    conn: conn,
+                    vpnServerHostname: vpnServerHostname,
+                    chinaDirectEnabled: chinaDirectEnabled,
+                    includeChinaBypassExcludedRoutes: includeChinaTables,
+                )
+                let serverIPv4 = currentServerIPv4(conn)
+                serverIPv4ForLoopCheck = serverIPv4
+                // #region agent log
+                AgentDebugLog.log(
+                    hypothesisId: "H1",
+                    location: "PacketTunnelProvider.before_setTunnelNetworkSettings",
+                    message: "network_settings_built",
+                    data: [
+                        "attempt": String(attempt),
+                        "chinaDirect": String(chinaDirectEnabled),
+                        "includeChinaTables": String(includeChinaTables),
+                        "excludedCount": String(exCount),
+                        "dnsCount": String(tun.dns.count),
+                        "serverIPv4Resolved": serverIPv4 != nil ? "true" : "false",
+                        "serverIPv4": serverIPv4 ?? "",
+                    ],
+                )
+                // #endregion
+                do {
+                    try await setTunnelNetworkSettingsAsync(settings)
+                    self.logger.info("setTunnelNetworkSettings succeeded attempt=\(attempt)")
+                    if attempt > 0 {
+                        self.logger.warning("国内直连路由表已降级：仅保留 VPN 服务器绕行，避免 setTunnelNetworkSettings 失败（系统 internal error）")
                     }
-                    self.logger.info("setTunnelNetworkSettings succeeded")
+                    // #region agent log
+                    AgentDebugLog.log(
+                        hypothesisId: "H1",
+                        location: "PacketTunnelProvider.setTunnelNetworkSettings",
+                        message: "ok",
+                        data: ["attempt": String(attempt)],
+                    )
+                    // #endregion
                     let finish: () -> Void = { [self] in
                         self.startTunnelCompletionLock.lock()
                         defer { self.startTunnelCompletionLock.unlock() }
                         guard !self.didReportStartTunnelCompletion else { return }
                         self.didReportStartTunnelCompletion = true
+                        // #region agent log
+                        AgentDebugLog.log(
+                            hypothesisId: "H3",
+                            location: "PacketTunnelProvider.handshakeAndRun",
+                            message: "completion_ok_after_settings",
+                            data: ["wireGen": String(wireGen)],
+                        )
+                        // #endregion
                         completionHandler(nil)
                         Task {
                             do {
@@ -358,7 +483,36 @@ open class PacketTunnelProvider: NEPacketTunnelProvider {
                     } else {
                         DispatchQueue.main.async(execute: finish)
                     }
-                    cont.resume()
+                    break
+                } catch {
+                    self.logger.error("setTunnelNetworkSettings failed attempt=\(attempt): \(error.localizedDescription, privacy: .public)")
+                    // #region agent log
+                    let n = error as NSError
+                    AgentDebugLog.log(
+                        hypothesisId: "H1",
+                        location: "PacketTunnelProvider.setTunnelNetworkSettings",
+                        message: "failed",
+                        data: [
+                            "attempt": String(attempt),
+                            "desc": error.localizedDescription,
+                            "domain": n.domain,
+                            "code": String(n.code),
+                        ],
+                    )
+                    // #endregion
+                    if attempt == 0, chinaDirectEnabled, includeChinaTables {
+                        // #region agent log
+                        AgentDebugLog.log(
+                            hypothesisId: "H1",
+                            location: "PacketTunnelProvider.setTunnelNetworkSettings",
+                            message: "retry_without_china_tables",
+                            data: [:],
+                        )
+                        // #endregion
+                        includeChinaTables = false
+                        continue
+                    }
+                    throw error
                 }
             }
         } catch is CancellationError {
@@ -372,6 +526,19 @@ open class PacketTunnelProvider: NEPacketTunnelProvider {
             )
         } catch {
             logger.error("handshakeAndRun failed: \(error.localizedDescription, privacy: .public)")
+            // #region agent log
+            let n = error as NSError
+            AgentDebugLog.log(
+                hypothesisId: "H5",
+                location: "PacketTunnelProvider.handshakeAndRun",
+                message: "catch",
+                data: [
+                    "desc": error.localizedDescription,
+                    "domain": n.domain,
+                    "code": String(n.code),
+                ],
+            )
+            // #endregion
             invokeStartTunnelCompletionOnMain(handler: completionHandler, error: error)
         }
     }
@@ -388,11 +555,47 @@ open class PacketTunnelProvider: NEPacketTunnelProvider {
     }
 
     private func runRelay(conn: NWConnection) async throws {
-        try await withThrowingTaskGroup(of: Void.self) { group in
-            group.addTask { try await self.upLoop(conn: conn) }
-            group.addTask { try await self.downLoop(conn: conn) }
-            try await group.next()
-            group.cancelAll()
+        // #region agent log
+        AgentDebugLog.log(hypothesisId: "H4", location: "PacketTunnelProvider.runRelay", message: "start", data: [:])
+        // #endregion
+        try await withThrowingTaskGroup(of: String.self) { group in
+            group.addTask {
+                try await self.upLoop(conn: conn)
+                return "upLoop"
+            }
+            group.addTask {
+                try await self.downLoop(conn: conn)
+                return "downLoop"
+            }
+            do {
+                if let endedLoop = try await group.next() {
+                    // #region agent log
+                    AgentDebugLog.log(
+                        hypothesisId: "H4",
+                        location: "PacketTunnelProvider.runRelay",
+                        message: "loop_returned",
+                        data: ["loop": endedLoop],
+                    )
+                    // #endregion
+                }
+                group.cancelAll()
+            } catch {
+                let n = error as NSError
+                // #region agent log
+                AgentDebugLog.log(
+                    hypothesisId: "H4",
+                    location: "PacketTunnelProvider.runRelay",
+                    message: "loop_threw",
+                    data: [
+                        "desc": error.localizedDescription,
+                        "domain": n.domain,
+                        "code": String(n.code),
+                    ],
+                )
+                // #endregion
+                group.cancelAll()
+                throw error
+            }
         }
     }
 
@@ -400,6 +603,8 @@ open class PacketTunnelProvider: NEPacketTunnelProvider {
         while true {
             let packets = try await readPacketsFlow()
             for p in packets {
+                recordRelayUp(bytes: p.count)
+                recordPotentialSelfTunnelPacket(p)
                 try await sendAll(conn, NwFraming.encodeFrame(type: .data, payload: p))
             }
         }
@@ -410,6 +615,7 @@ open class PacketTunnelProvider: NEPacketTunnelProvider {
             let fr = try await readFrame(conn)
             switch fr.type {
             case .data:
+                recordRelayDown(bytes: fr.payload.count)
                 try packetFlow.writePackets([fr.payload], withProtocols: [NSNumber(value: AF_INET)])
             case .keepalive:
                 try await sendAll(conn, NwFraming.encodeFrame(type: .keepalive, payload: Data()))
@@ -451,6 +657,7 @@ open class PacketTunnelProvider: NEPacketTunnelProvider {
             if let f = try popFrame(&rxBuffer) { return f }
             let chunk = try await recvSome(conn)
             rxBuffer.append(chunk)
+            recordRxBufferSize(rxBuffer.count)
         }
     }
 
@@ -477,10 +684,63 @@ open class PacketTunnelProvider: NEPacketTunnelProvider {
         return try NwFraming.decodeFrame(Data(frameBytes))
     }
 
+    private func setTunnelNetworkSettingsAsync(_ settings: NEPacketTunnelNetworkSettings) async throws {
+        try await withCheckedThrowingContinuation { (cont: CheckedContinuation<Void, Error>) in
+            setTunnelNetworkSettings(settings) { err in
+                if let err {
+                    cont.resume(throwing: err)
+                } else {
+                    cont.resume()
+                }
+            }
+        }
+    }
+
+    private func buildTunnelNetworkSettings(
+        tun: NwFraming.AssignTunnel,
+        conn: NWConnection,
+        vpnServerHostname: String?,
+        chinaDirectEnabled: Bool,
+        includeChinaBypassExcludedRoutes: Bool,
+    ) -> (NEPacketTunnelNetworkSettings, Int) {
+        let tunIP = Self.ipv4String(tun.ipv4)
+        let ipv4 = NEIPv4Settings(addresses: [tunIP], subnetMasks: ["255.255.255.255"])
+        ipv4.includedRoutes = [NEIPv4Route.default()]
+        var excludedRoutes: [NEIPv4Route] = []
+        if chinaDirectEnabled, includeChinaBypassExcludedRoutes {
+            let rs = loadDirectBypassRoutes()
+            logger.info("excluded routes count=\(rs.count)")
+            excludedRoutes.append(contentsOf: rs)
+        }
+        let fromPath = currentServerIPv4(conn)
+        let fromDNS: String? = {
+            guard fromPath == nil, let h = vpnServerHostname else { return nil }
+            return Self.resolveHostnameToFirstIPv4(h)
+        }()
+        if let serverIPv4 = fromPath ?? fromDNS {
+            excludedRoutes.append(NEIPv4Route(destinationAddress: serverIPv4, subnetMask: "255.255.255.255"))
+            let src = fromPath != nil ? "nwPath" : "dns"
+            logger.info("exclude vpn server host route=\(serverIPv4, privacy: .public) source=\(src, privacy: .public)")
+        } else {
+            logger.error("cannot resolve server IPv4 from currentPath or DNS, may loop after default route")
+        }
+        if !excludedRoutes.isEmpty {
+            ipv4.excludedRoutes = excludedRoutes
+        }
+        var dns: [String] = []
+        for d in tun.dns { dns.append(Self.ipv4String(d)) }
+        let dnsSettings = NEDNSSettings(servers: dns.isEmpty ? ["8.8.8.8"] : dns)
+        let settings = NEPacketTunnelNetworkSettings(tunnelRemoteAddress: "10.77.0.1")
+        settings.ipv4Settings = ipv4
+        settings.dnsSettings = dnsSettings
+        settings.mtu = NSNumber(value: 1400)
+        return (settings, excludedRoutes.count)
+    }
+
     private func loadDirectBypassRoutes() -> [NEIPv4Route] {
         var routes: [NEIPv4Route] = []
         var seen = Set<String>()
-        // 先合并 mainland 表再补丁表；总量受 `maxExcludedRoutes` 限制（过大会触发 setTunnelNetworkSettings 失败）。
+        // 先合并 mainland 表再补丁表；总量受 `maxExcludedRoutes` 限制（过大会触发 setTunnelNetworkSettings 失败 / internal error）。
         for name in ["china_ipv4", "extra_direct_ipv4"] {
             guard let url = Bundle.main.url(forResource: name, withExtension: "txt"),
                   let content = try? String(contentsOf: url, encoding: .utf8)
@@ -561,5 +821,216 @@ open class PacketTunnelProvider: NEPacketTunnelProvider {
         let b = [UInt8](addr.rawValue)
         guard b.count == 4 else { return nil }
         return "\(b[0]).\(b[1]).\(b[2]).\(b[3])"
+    }
+
+    /// `NETunnelProviderProtocol.serverAddress` 的主机部分（不含端口）；不支持 `[v6]:port` 形态。
+    private static func vpnServerHost(fromServerAddress addr: String?) -> String? {
+        guard let addr, !addr.isEmpty else { return nil }
+        if addr.contains("[") { return nil }
+        let parts = addr.split(separator: ":", maxSplits: 1, omittingEmptySubsequences: false)
+        guard let first = parts.first else { return nil }
+        let host = String(first)
+        return host.isEmpty ? nil : host
+    }
+
+    /// 当 `NWConnection.currentPath.remoteEndpoint` 仍为 `.name` 等、拿不到 IPv4 时，用 A 记录补全，以便下发 VPN 服务器 `/32` excludedRoute，避免默认路由进隧道后 TLS 对端被误送进隧道。
+    private static func resolveHostnameToFirstIPv4(_ hostname: String) -> String? {
+        guard !hostname.isEmpty else { return nil }
+        if ipv4UInt32(hostname) != nil {
+            return hostname
+        }
+        var hints = addrinfo()
+        hints.ai_family = AF_INET
+        hints.ai_socktype = SOCK_STREAM
+        hints.ai_flags = AI_ADDRCONFIG
+        var res: UnsafeMutablePointer<addrinfo>?
+        defer {
+            if let r = res {
+                freeaddrinfo(r)
+            }
+        }
+        guard getaddrinfo(hostname, nil, &hints, &res) == 0, let first = res else { return nil }
+        var ptr: UnsafeMutablePointer<addrinfo>? = first
+        while let p = ptr {
+            if p.pointee.ai_family == AF_INET, let sa = p.pointee.ai_addr {
+                let sin = sa.withMemoryRebound(to: sockaddr_in.self, capacity: 1) { $0.pointee }
+                var addr = sin.sin_addr
+                return withUnsafeBytes(of: &addr) { buf in
+                    guard buf.count >= 4 else { return nil as String? }
+                    let b = buf.bindMemory(to: UInt8.self)
+                    return "\(b[0]).\(b[1]).\(b[2]).\(b[3])"
+                }
+            }
+            ptr = p.pointee.ai_next
+        }
+        return nil
+    }
+
+    private func recordRelayUp(bytes: Int) {
+        relayStatsLock.lock()
+        relayUpPackets &+= 1
+        relayUpBytes &+= UInt64(bytes)
+        relayStatsLock.unlock()
+    }
+
+    private func recordRelayDown(bytes: Int) {
+        relayStatsLock.lock()
+        relayDownPackets &+= 1
+        relayDownBytes &+= UInt64(bytes)
+        relayStatsLock.unlock()
+    }
+
+    private func recordRxBufferSize(_ bytes: Int) {
+        relayStatsLock.lock()
+        if bytes > relayMaxRxBufferBytes {
+            relayMaxRxBufferBytes = bytes
+        }
+        relayStatsLock.unlock()
+    }
+
+    private func relayStatsSnapshot() -> [String: String] {
+        relayStatsLock.lock()
+        defer { relayStatsLock.unlock() }
+        return [
+            "upPackets": String(relayUpPackets),
+            "downPackets": String(relayDownPackets),
+            "upBytes": String(relayUpBytes),
+            "downBytes": String(relayDownBytes),
+            "maxRxBufferBytes": String(relayMaxRxBufferBytes),
+            "selfTunnelPackets": String(relaySelfTunnelPackets),
+            "selfTunnelBytes": String(relaySelfTunnelBytes),
+            "serverIPv4ForLoopCheck": serverIPv4ForLoopCheck ?? "",
+            "serverPortForLoopCheck": String(serverPortForLoopCheck),
+        ]
+    }
+
+    private func recordPotentialSelfTunnelPacket(_ packet: Data) {
+        guard let serverIPv4ForLoopCheck,
+              let serverIP = Self.ipv4UInt32(serverIPv4ForLoopCheck),
+              let info = Self.ipv4TransportInfo(packet),
+              info.dstIP == serverIP,
+              info.dstPort == serverPortForLoopCheck
+        else {
+            return
+        }
+        relayStatsLock.lock()
+        relaySelfTunnelPackets &+= 1
+        relaySelfTunnelBytes &+= UInt64(packet.count)
+        let shouldLog = relaySelfTunnelPackets <= 5 || relaySelfTunnelPackets.isMultiple(of: 100)
+        let count = relaySelfTunnelPackets
+        relayStatsLock.unlock()
+        if shouldLog {
+            // #region agent log
+            AgentDebugLog.log(
+                hypothesisId: "H9",
+                location: "PacketTunnelProvider.upLoop",
+                message: "self_tunnel_packet",
+                data: [
+                    "count": String(count),
+                    "bytes": String(packet.count),
+                    "dst": serverIPv4ForLoopCheck,
+                    "dstPort": String(serverPortForLoopCheck),
+                ],
+            )
+            // #endregion
+        }
+    }
+
+    private static func ipv4TransportInfo(_ packet: Data) -> (dstIP: UInt32, dstPort: UInt16)? {
+        let b = [UInt8](packet.prefix(40))
+        guard b.count >= 20 else { return nil }
+        let version = b[0] >> 4
+        let ihl = Int(b[0] & 0x0F) * 4
+        guard version == 4, ihl >= 20, b.count >= ihl + 4 else { return nil }
+        let proto = b[9]
+        guard proto == 6 || proto == 17 else { return nil }
+        let dstIP = (UInt32(b[16]) << 24) | (UInt32(b[17]) << 16) | (UInt32(b[18]) << 8) | UInt32(b[19])
+        let dstPort = (UInt16(b[ihl + 2]) << 8) | UInt16(b[ihl + 3])
+        return (dstIP, dstPort)
+    }
+
+    private func recvStateSnapshot() -> [String: String] {
+        nwQueue.sync {
+            [
+                "rxBufferBytes": String(rxBuffer.count),
+                "tickets": String(nwRecvTickets.count),
+                "prefetchChunks": String(nwRecvPrefetchedChunks.count),
+                "prefetchBytes": String(nwRecvPrefetchedChunks.reduce(0) { $0 + $1.count }),
+                "recvInFlight": String(nwRecvInFlight),
+                "recvEpoch": String(nwRecvEpoch),
+            ]
+        }
+    }
+
+    private func startMemorySampling() {
+        memorySampleTask?.cancel()
+        memorySampleTask = Task { [weak self] in
+            guard let self else { return }
+            for sample in 0 ..< 60 {
+                if Task.isCancelled { return }
+                if sample > 0 {
+                    try? await Task.sleep(nanoseconds: 10_000_000_000)
+                }
+                if Task.isCancelled { return }
+                var data = self.relayStatsSnapshot()
+                data.merge(self.recvStateSnapshot()) { _, new in new }
+                data["residentMB"] = String(Self.residentMemoryBytes() / 1_048_576)
+                data["sample"] = String(sample)
+                // #region agent log
+                AgentDebugLog.log(
+                    hypothesisId: "H8",
+                    location: "PacketTunnelProvider.memory",
+                    message: "sample",
+                    data: data,
+                )
+                // #endregion
+            }
+        }
+    }
+
+    private static func residentMemoryBytes() -> UInt64 {
+        var info = mach_task_basic_info()
+        var count = mach_msg_type_number_t(MemoryLayout<mach_task_basic_info>.size) / 4
+        let result = withUnsafeMutablePointer(to: &info) {
+            $0.withMemoryRebound(to: integer_t.self, capacity: Int(count)) {
+                task_info(mach_task_self_, task_flavor_t(MACH_TASK_BASIC_INFO), $0, &count)
+            }
+        }
+        guard result == KERN_SUCCESS else { return 0 }
+        return UInt64(info.resident_size)
+    }
+}
+
+// MARK: - Debug NDJSON（与 PacketTunnel 同文件，避免 Xcode 工程未纳入新 .swift 时 “Cannot find in scope”）
+/// 仅写 OSLog（subsystem `com.newworld.nwvpn.ios.debug`）；真机扩展沙盒不能直接写 Mac 路径。
+/// 转存到仓库日志见 `scripts/ios_device_logs_to_cursor.sh` / README。
+fileprivate enum AgentDebugLog {
+    private static let sessionId = "2902a2"
+    private static let dbgLogger = Logger(subsystem: "com.newworld.nwvpn.ios.debug", category: "NDJSON")
+
+    private struct Entry: Codable {
+        let sessionId: String
+        let runId: String
+        let hypothesisId: String
+        let location: String
+        let message: String
+        let timestamp: Int64
+        let data: [String: String]
+    }
+
+    static func log(runId: String = "pre-fix", hypothesisId: String, location: String, message: String, data: [String: String] = [:]) {
+        let entry = Entry(
+            sessionId: sessionId,
+            runId: runId,
+            hypothesisId: hypothesisId,
+            location: location,
+            message: message,
+            timestamp: Int64(Date().timeIntervalSince1970 * 1000),
+            data: data,
+        )
+        guard let lineData = try? JSONEncoder().encode(entry),
+              let line = String(data: lineData, encoding: .utf8)
+        else { return }
+        dbgLogger.info("\(line, privacy: .public)")
     }
 }
