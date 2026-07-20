@@ -9,6 +9,16 @@ open class PacketTunnelProvider: NEPacketTunnelProvider {
     /// iOS 对 `excludedRoutes` 体量很敏感；过大时 `setTunnelNetworkSettings` 易失败并表现为 “internal error”。
     /// 实测 512 仍偶发失败，收紧到 128；若仍失败会再尝试仅排除 VPN 服务器（见 `handshakeAndRun`）。
     private static let maxExcludedRoutes = 128
+    /// H15：`writePackets` 的 `protocols` 需互异 `NSNumber`；预生成池避免热路径每包 `NSNumber(value:)` 分配（H13 缩小 receive 上限未改变 RSS 峰值，已回退 receive 大小）。
+    private static let afInetProtoPoolForWrite: [NSNumber] = (0..<32).map { _ in NSNumber(value: AF_INET) }
+    /// 诊断：Xcode Debug 与 Release 的 RSS 差异大；与 jetsam 对照用。
+    private static var agentBuildFlavor: String {
+        #if DEBUG
+        "debug"
+        #else
+        "release"
+        #endif
+    }
     private let logger = Logger(subsystem: "com.newworld.nwvpn.ios", category: "PacketTunnel")
     /// 与 `NWConnection.start(queue:)` 一致；send/receive 的 completion 也在此队列上触发。
     private let nwQueue = DispatchQueue(label: "com.newworld.NWVPNiOS.PacketTunnel.nw")
@@ -41,6 +51,8 @@ open class PacketTunnelProvider: NEPacketTunnelProvider {
     private var relayMaxRxBufferBytes: Int = 0
     private var relaySelfTunnelPackets: UInt64 = 0
     private var relaySelfTunnelBytes: UInt64 = 0
+    /// `downLoop` 调用 `writePackets` 的次数（与 `relayDownPackets` 同步递增；预留用于后续批量写入对比）。
+    private var relayDownWriteCalls: UInt64 = 0
     private var serverIPv4ForLoopCheck: String?
     private var serverPortForLoopCheck: UInt16 = 0
 
@@ -414,15 +426,14 @@ open class PacketTunnelProvider: NEPacketTunnelProvider {
             let maxSettingsAttempts = chinaDirectEnabled ? 2 : 1
             for attempt in 0 ..< maxSettingsAttempts {
                 if handshakeSuperseded(wireGen: wireGen, completionHandler: completionHandler) { return }
-                let (settings, exCount) = buildTunnelNetworkSettings(
+                let (settings, exCount, monitorServerIPv4, pathIpv4, dnsFallbackIpv4) = buildTunnelNetworkSettings(
                     tun: tun,
                     conn: conn,
                     vpnServerHostname: vpnServerHostname,
                     chinaDirectEnabled: chinaDirectEnabled,
                     includeChinaBypassExcludedRoutes: includeChinaTables,
                 )
-                let serverIPv4 = currentServerIPv4(conn)
-                serverIPv4ForLoopCheck = serverIPv4
+                serverIPv4ForLoopCheck = monitorServerIPv4
                 // #region agent log
                 AgentDebugLog.log(
                     hypothesisId: "H1",
@@ -434,8 +445,10 @@ open class PacketTunnelProvider: NEPacketTunnelProvider {
                         "includeChinaTables": String(includeChinaTables),
                         "excludedCount": String(exCount),
                         "dnsCount": String(tun.dns.count),
-                        "serverIPv4Resolved": serverIPv4 != nil ? "true" : "false",
-                        "serverIPv4": serverIPv4 ?? "",
+                        "pathIpv4": pathIpv4 ?? "",
+                        "dnsFallbackIpv4": dnsFallbackIpv4,
+                        "monitorServerIPv4": monitorServerIPv4 ?? "",
+                        "serverIPv4Resolved": monitorServerIPv4 != nil ? "true" : "false",
                     ],
                 )
                 // #endregion
@@ -610,13 +623,49 @@ open class PacketTunnelProvider: NEPacketTunnelProvider {
         }
     }
 
+    /// 下行写 TUN：`protocols` 与 `packets` 等长；**每条须互异 NSNumber**（勿 `Array(repeating: 同一实例)`）。批量 ≤32 时用静态池。
+    private func writePacketsToTun(_ packets: [Data]) throws {
+        guard !packets.isEmpty else { return }
+        let n = packets.count
+        let protos: [NSNumber]
+        if n <= Self.afInetProtoPoolForWrite.count {
+            protos = Array(Self.afInetProtoPoolForWrite.prefix(n))
+        } else {
+            protos = (0..<n).map { _ in NSNumber(value: AF_INET) }
+        }
+        do {
+            try packetFlow.writePackets(packets, withProtocols: protos)
+        } catch {
+            // #region agent log
+            let ne = error as NSError
+            AgentDebugLog.log(
+                hypothesisId: "H12",
+                location: "PacketTunnelProvider.writePacketsToTun",
+                message: "write_failed",
+                data: [
+                    "count": String(packets.count),
+                    "bytes": String(packets.reduce(0) { $0 + $1.count }),
+                    "desc": error.localizedDescription,
+                    "domain": ne.domain,
+                    "code": String(ne.code),
+                ],
+            )
+            // #endregion
+            throw error
+        }
+        relayStatsLock.lock()
+        relayDownWriteCalls &+= 1
+        relayStatsLock.unlock()
+    }
+
+    /// H20：H19（4×8KiB 批量）仍约 72s jetsam；改为**每帧单行写 TUN**，去掉 `[Data]` 批量与合并阈值，压低峰值（吞吐换内存）。
     private func downLoop(conn: NWConnection) async throws {
         while true {
             let fr = try await readFrame(conn)
             switch fr.type {
             case .data:
                 recordRelayDown(bytes: fr.payload.count)
-                try packetFlow.writePackets([fr.payload], withProtocols: [NSNumber(value: AF_INET)])
+                try writePacketsToTun([fr.payload])
             case .keepalive:
                 try await sendAll(conn, NwFraming.encodeFrame(type: .keepalive, payload: Data()))
             default:
@@ -702,7 +751,7 @@ open class PacketTunnelProvider: NEPacketTunnelProvider {
         vpnServerHostname: String?,
         chinaDirectEnabled: Bool,
         includeChinaBypassExcludedRoutes: Bool,
-    ) -> (NEPacketTunnelNetworkSettings, Int) {
+    ) -> (NEPacketTunnelNetworkSettings, Int, monitorServerIPv4: String?, pathIpv4: String?, dnsFallbackIpv4: String) {
         let tunIP = Self.ipv4String(tun.ipv4)
         let ipv4 = NEIPv4Settings(addresses: [tunIP], subnetMasks: ["255.255.255.255"])
         ipv4.includedRoutes = [NEIPv4Route.default()]
@@ -717,7 +766,8 @@ open class PacketTunnelProvider: NEPacketTunnelProvider {
             guard fromPath == nil, let h = vpnServerHostname else { return nil }
             return Self.resolveHostnameToFirstIPv4(h)
         }()
-        if let serverIPv4 = fromPath ?? fromDNS {
+        let monitorServerIPv4 = fromPath ?? fromDNS
+        if let serverIPv4 = monitorServerIPv4 {
             excludedRoutes.append(NEIPv4Route(destinationAddress: serverIPv4, subnetMask: "255.255.255.255"))
             let src = fromPath != nil ? "nwPath" : "dns"
             logger.info("exclude vpn server host route=\(serverIPv4, privacy: .public) source=\(src, privacy: .public)")
@@ -734,7 +784,7 @@ open class PacketTunnelProvider: NEPacketTunnelProvider {
         settings.ipv4Settings = ipv4
         settings.dnsSettings = dnsSettings
         settings.mtu = NSNumber(value: 1400)
-        return (settings, excludedRoutes.count)
+        return (settings, excludedRoutes.count, monitorServerIPv4, fromPath, fromDNS ?? "")
     }
 
     private func loadDirectBypassRoutes() -> [NEIPv4Route] {
@@ -901,6 +951,7 @@ open class PacketTunnelProvider: NEPacketTunnelProvider {
             "selfTunnelBytes": String(relaySelfTunnelBytes),
             "serverIPv4ForLoopCheck": serverIPv4ForLoopCheck ?? "",
             "serverPortForLoopCheck": String(serverPortForLoopCheck),
+            "downWriteCalls": String(relayDownWriteCalls),
         ]
     }
 
@@ -975,7 +1026,10 @@ open class PacketTunnelProvider: NEPacketTunnelProvider {
                 var data = self.relayStatsSnapshot()
                 data.merge(self.recvStateSnapshot()) { _, new in new }
                 data["residentMB"] = String(Self.residentMemoryBytes() / 1_048_576)
+                data["physFootprintMB"] = String(Self.physFootprintBytes() / 1_048_576)
                 data["sample"] = String(sample)
+                data["buildFlavor"] = Self.agentBuildFlavor
+                data["downTunMode"] = "single_packet"
                 // #region agent log
                 AgentDebugLog.log(
                     hypothesisId: "H8",
@@ -998,6 +1052,19 @@ open class PacketTunnelProvider: NEPacketTunnelProvider {
         }
         guard result == KERN_SUCCESS else { return 0 }
         return UInt64(info.resident_size)
+    }
+
+    /// H21：jetsam 常用 **physical footprint**，与 `resident_size` 对照（此前 RSS 与内核 50MiB 不完全对齐）。
+    private static func physFootprintBytes() -> UInt64 {
+        var info = task_vm_info_data_t()
+        var count = mach_msg_type_number_t(MemoryLayout<task_vm_info_data_t>.size / 4)
+        let kerr = withUnsafeMutablePointer(to: &info) {
+            $0.withMemoryRebound(to: integer_t.self, capacity: Int(count)) {
+                task_info(mach_task_self_, task_flavor_t(TASK_VM_INFO), $0, &count)
+            }
+        }
+        guard kerr == KERN_SUCCESS else { return 0 }
+        return UInt64(info.phys_footprint)
     }
 }
 

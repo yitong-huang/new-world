@@ -17,7 +17,7 @@ OUT="${ROOT}/.cursor/debug-2902a2.log"
 mkdir -p "$(dirname "$OUT")"
 
 # Default grep pattern (ASCII only; avoid CRLF / fancy quotes in this file)
-DEFAULT_FILTER='NWVPN|nwvpn|PacketTunnel|NWVPNiOSPacketTunnel|2902a2|com\.newworld\.nwvpn|VPNManager|lastDisconnectError|NWTunnel|NEVPN|NESMVPNSession|nesessionmanager|neagent|NetworkExtension|provider|plugin'
+DEFAULT_FILTER='NWVPN|nwvpn|PacketTunnel|NWVPNiOSPacketTunnel|2902a2|com\.newworld\.nwvpn|nwvpn\.ios\.debug|VPNManager|lastDisconnectError|NWTunnel|NEVPN|NESMVPNSession|nesessionmanager|neagent|NetworkExtension|provider|plugin'
 if [[ -n "${IOS_LOG_FILTER:-}" ]]; then
   FILTER="${IOS_LOG_FILTER}"
 else

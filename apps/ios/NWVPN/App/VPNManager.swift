@@ -1,6 +1,7 @@
 import Foundation
 import NetworkExtension
 import OSLog
+import UIKit
 
 @MainActor
 final class VPNManager: ObservableObject {
@@ -19,9 +20,31 @@ final class VPNManager: ObservableObject {
 
     private var manager: NETunnelProviderManager?
     private var observer: NSObjectProtocol?
+    private var foregroundObserver: NSObjectProtocol?
+    /// 长时间停留在系统 `.connecting`（例如对端无响应）时，主动 `stopVPNTunnel`，避免界面一直显示「连接中…」。
+    private var connectingTimeoutWorkItem: DispatchWorkItem?
+    /// 非用户主动断开时，延迟后自动重连。
+    private var autoReconnectWorkItem: DispatchWorkItem?
+    private var autoReconnectAttempt = 0
+    private var userRequestedDisconnect = false
+
+    private struct ConnectParams {
+        let host: String
+        let port: String
+        let username: String
+        let password: String
+        let chinaDirect: Bool
+    }
+
+    private var lastConnectParams: ConnectParams?
 
     /// 与 `project.yml` 中扩展的 `PRODUCT_BUNDLE_IDENTIFIER` 一致。
     private let extensionBundleId = "com.newworld.NWVPNiOS.PacketTunnel"
+
+    /// 秒；超过此时间仍为 `NEVPNStatus.connecting` 则视为失败并断开。
+    private static let connectingTimeoutSeconds: TimeInterval = 10
+    private static let autoReconnectBaseDelaySeconds: TimeInterval = 2
+    private static let autoReconnectMaxDelaySeconds: TimeInterval = 60
 
     private enum AgentDebugLog {
         private static let sessionId = "2902a2"
@@ -97,11 +120,26 @@ final class VPNManager: ObservableObject {
                 }
             }
         }
+        foregroundObserver = NotificationCenter.default.addObserver(
+            forName: UIApplication.willEnterForegroundNotification,
+            object: nil,
+            queue: .main
+        ) { [weak self] _ in
+            guard let self else { return }
+            Task { @MainActor in
+                self.handleAppForeground()
+            }
+        }
         loadPreferences()
     }
 
     deinit {
+        connectingTimeoutWorkItem?.cancel()
+        autoReconnectWorkItem?.cancel()
         if let o = observer {
+            NotificationCenter.default.removeObserver(o)
+        }
+        if let o = foregroundObserver {
             NotificationCenter.default.removeObserver(o)
         }
     }
@@ -155,9 +193,85 @@ final class VPNManager: ObservableObject {
         }
     }
 
+    private func cancelConnectingTimeout() {
+        connectingTimeoutWorkItem?.cancel()
+        connectingTimeoutWorkItem = nil
+    }
+
+    private func cancelAutoReconnect() {
+        autoReconnectWorkItem?.cancel()
+        autoReconnectWorkItem = nil
+    }
+
+    private func autoReconnectDelaySeconds() -> TimeInterval {
+        let exp = min(autoReconnectAttempt, 5)
+        return min(Self.autoReconnectBaseDelaySeconds * pow(2.0, Double(exp)), Self.autoReconnectMaxDelaySeconds)
+    }
+
+    private func scheduleAutoReconnectIfNeeded() {
+        guard !userRequestedDisconnect else { return }
+        guard let params = lastConnectParams else { return }
+        guard autoReconnectWorkItem == nil else { return }
+
+        let delay = autoReconnectDelaySeconds()
+        statusText = "等待重连（\(Int(ceil(delay)))秒）…"
+
+        let item = DispatchWorkItem { [weak self] in
+            guard let self else { return }
+            Task { @MainActor in
+                self.autoReconnectWorkItem = nil
+                guard !self.userRequestedDisconnect else { return }
+                guard self.neConnectionStatus == .disconnected || self.neConnectionStatus == .invalid else { return }
+                self.autoReconnectAttempt += 1
+                self.connect(
+                    host: params.host,
+                    port: params.port,
+                    username: params.username,
+                    password: params.password,
+                    chinaDirect: params.chinaDirect,
+                    resetReconnectBackoff: false,
+                )
+            }
+        }
+        autoReconnectWorkItem = item
+        DispatchQueue.main.asyncAfter(deadline: .now() + delay, execute: item)
+    }
+
+    private func handleAppForeground() {
+        guard !userRequestedDisconnect else { return }
+        guard lastConnectParams != nil else { return }
+        let status = manager?.connection.status ?? .invalid
+        if status == .disconnected || status == .invalid {
+            scheduleAutoReconnectIfNeeded()
+        }
+    }
+
+    private func scheduleConnectingTimeoutIfNeeded() {
+        if connectingTimeoutWorkItem != nil { return }
+        let seconds = Self.connectingTimeoutSeconds
+        let item = DispatchWorkItem { [weak self] in
+            guard let self else { return }
+            Task { @MainActor in
+                guard self.neConnectionStatus == .connecting else { return }
+                self.lastError = "连接超时（\(Int(seconds)) 秒），请检查网络或服务器地址"
+                self.manager?.connection.stopVPNTunnel()
+                if let m = self.manager {
+                    self.updateStatusLabel(m.connection.status, connection: m.connection)
+                } else {
+                    self.updateStatusLabel(.disconnected, connection: nil)
+                }
+            }
+        }
+        connectingTimeoutWorkItem = item
+        DispatchQueue.main.asyncAfter(deadline: .now() + seconds, execute: item)
+    }
+
     /// 与系统「设置 → VPN」相同的数据源：`NEVPNConnection.status`。断开时用 `fetchLastDisconnectError` 拉扩展返回的 NSError（iOS 16+）。
     private func updateStatusLabel(_ s: NEVPNStatus, connection: NEVPNConnection? = nil) {
         neConnectionStatus = s
+        if s != .connecting {
+            cancelConnectingTimeout()
+        }
         let conn = connection ?? manager?.connection
         // #region agent log
         Self.AgentDebugLog.log(
@@ -172,14 +286,22 @@ final class VPNManager: ObservableObject {
         // #endregion
         switch s {
         case .connected:
+            cancelAutoReconnect()
+            autoReconnectAttempt = 0
             lastError = nil
             statusText = "已连接"
         case .connecting:
+            cancelAutoReconnect()
+            scheduleConnectingTimeoutIfNeeded()
             statusText = "连接中…"
         case .disconnecting:
             statusText = "断开中…"
         case .disconnected:
-            statusText = "未连接"
+            if !userRequestedDisconnect, lastConnectParams != nil {
+                scheduleAutoReconnectIfNeeded()
+            } else {
+                statusText = "未连接"
+            }
             if #available(iOS 16.0, *), let conn {
                 conn.fetchLastDisconnectError { err in
                     Task { @MainActor in
@@ -293,8 +415,27 @@ final class VPNManager: ObservableObject {
         return Self.providerConfigEqual(have, want)
     }
 
-    func connect(host: String, port: String, username: String, password: String, chinaDirect: Bool) {
+    func connect(
+        host: String,
+        port: String,
+        username: String,
+        password: String,
+        chinaDirect: Bool,
+        resetReconnectBackoff: Bool = true,
+    ) {
         guard beginConnectFlow() else { return }
+        userRequestedDisconnect = false
+        cancelAutoReconnect()
+        if resetReconnectBackoff {
+            autoReconnectAttempt = 0
+        }
+        lastConnectParams = ConnectParams(
+            host: host.trimmingCharacters(in: .whitespaces),
+            port: port.trimmingCharacters(in: .whitespaces),
+            username: username,
+            password: password,
+            chinaDirect: chinaDirect,
+        )
         lastError = nil
         tunnelConfigurationBusy = true
         let addr = "\(host.trimmingCharacters(in: .whitespaces)):\(port.trimmingCharacters(in: .whitespaces))"
@@ -478,6 +619,9 @@ final class VPNManager: ObservableObject {
     }
 
     func disconnect() {
+        userRequestedDisconnect = true
+        cancelAutoReconnect()
+        cancelConnectingTimeout()
         manager?.connection.stopVPNTunnel()
         if let m = manager {
             updateStatusLabel(m.connection.status, connection: m.connection)

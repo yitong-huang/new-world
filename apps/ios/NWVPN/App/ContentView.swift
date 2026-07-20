@@ -15,9 +15,31 @@ struct ContentView: View {
     @State private var password = ""
     @State private var chinaDirect = false
     @State private var lastConnectTap = Date(timeIntervalSince1970: 0)
+    /// `onAppear` 里 `normalizeSelectedServerHost()` 会改 `selectedServerHost`，延迟到下一 runloop 再处理切换，避免误触发「断线重连」。
+    @State private var nodeChangeSwitchEnabled = false
+    @State private var nodeSwitchReconnectTask: Task<Void, Never>?
 
-    /// 未连接/未配置：红色；已连接：蓝色；其余（连接中等）：次要色。
+    /// 当前已有隧道会话（或正在建立/拆除）时，切换 Picker 节点应断开后改连新地址。
+    private var shouldReconnectTunnelAfterHostChange: Bool {
+        switch vpn.neConnectionStatus {
+        case .connected, .connecting, .disconnecting, .reasserting:
+            return true
+        case .disconnected, .invalid:
+            return false
+        @unknown default:
+            return false
+        }
+    }
+
+    private var statusShowsPendingReconnect: Bool {
+        vpn.statusText.hasPrefix("等待重连")
+    }
+
+    /// 未连接/未配置：红色；已连接：蓝色；等待重连：次要色；其余（连接中等）：次要色。
     private var statusDisplayColor: Color {
+        if statusShowsPendingReconnect {
+            return .secondary
+        }
         switch vpn.neConnectionStatus {
         case .connected:
             return .blue
@@ -111,6 +133,20 @@ struct ContentView: View {
             .onAppear {
                 serverNodes = VPNServerCatalog.loadEntries()
                 normalizeSelectedServerHost()
+                DispatchQueue.main.async {
+                    nodeChangeSwitchEnabled = true
+                }
+            }
+            .onDisappear {
+                nodeSwitchReconnectTask?.cancel()
+                nodeSwitchReconnectTask = nil
+            }
+            .onChange(of: selectedServerHost) { newHost in
+                guard nodeChangeSwitchEnabled else { return }
+                let trimmed = newHost.trimmingCharacters(in: .whitespacesAndNewlines)
+                guard !trimmed.isEmpty else { return }
+                guard shouldReconnectTunnelAfterHostChange else { return }
+                reconnectTunnelForNewNodeSelection()
             }
         }
     }
@@ -121,6 +157,8 @@ struct ContentView: View {
         lastConnectTap = now
         switch vpn.neConnectionStatus {
         case .connected:
+            nodeSwitchReconnectTask?.cancel()
+            nodeSwitchReconnectTask = nil
             vpn.disconnect()
         case .disconnected, .invalid:
             performConnect()
@@ -129,7 +167,21 @@ struct ContentView: View {
         }
     }
 
+    /// 切换节点：先停隧道，再连当前 `selectedServerHost`（与状态栏点「连接」相同参数）。
+    private func reconnectTunnelForNewNodeSelection() {
+        nodeSwitchReconnectTask?.cancel()
+        serverNodes = VPNServerCatalog.loadEntries()
+        vpn.disconnect()
+        nodeSwitchReconnectTask = Task { @MainActor in
+            try? await Task.sleep(nanoseconds: 450_000_000)
+            guard !Task.isCancelled else { return }
+            performConnect()
+        }
+    }
+
     private func performConnect() {
+        nodeSwitchReconnectTask?.cancel()
+        nodeSwitchReconnectTask = nil
         serverNodes = VPNServerCatalog.loadEntries()
         normalizeSelectedServerHost()
         let addr = VPNServerCatalog.resolveServerAddress(selectedHost: selectedServerHost)
