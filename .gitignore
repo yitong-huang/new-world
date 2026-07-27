@@ -77,6 +77,13 @@ apps/ios/NWVPN/NWVPNiOS.xcodeproj/
 apps/harmonyos/**/build/
 apps/harmonyos/**/.hvigor/
 apps/harmonyos/**/oh_modules/
+apps/harmonyos/**/local.properties
+apps/harmonyos/**/signing/material/**
+!apps/harmonyos/**/signing/material/.gitkeep
+apps/harmonyos/**/*.p12
+apps/harmonyos/**/*.cer
+apps/harmonyos/**/*.p7b
+apps/harmonyos/**/*.csr
 
 # 本地归档产物
 archives/

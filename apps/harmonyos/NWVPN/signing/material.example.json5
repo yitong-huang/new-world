@@ -1,0 +1,7 @@
+// 本工程采用「hvigor 出未签名 HAP + hap-sign-tool 本地签名」。
+// 材料目录 signing/material/（已 gitignore）需要:
+//   nwvpn-debug.p12 / nwvpn-debug.csr  — ./scripts/harmonyos_setup_signing.sh 生成
+//   nwvpn-debug.cer / nwvpn-debug.p7b  — 从 AppGallery Connect 下载后放入
+// 配齐后执行: ./scripts/harmonyos_setup_signing.sh apply
+// 再: ./scripts/build_and_install_hap.sh
+{}

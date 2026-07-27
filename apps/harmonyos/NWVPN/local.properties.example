@@ -1,0 +1,11 @@
+# 复制为 local.properties（已 gitignore），按本机路径修改。
+# 指向 HarmonyOS SDK 根目录（含 default/ 或 openharmony/ 的那一层）。
+#
+# Command Line Tools 常见路径：
+#   sdk.dir=/Users/你/command-line-tools/sdk
+# DevEco Studio（macOS）常见路径：
+#   sdk.dir=/Applications/DevEco-Studio.app/Contents/sdk
+# 或用户目录：
+#   sdk.dir=/Users/你/Library/Huawei/Sdk
+
+sdk.dir=

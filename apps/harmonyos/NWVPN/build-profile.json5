@@ -1,10 +1,12 @@
 {
   "app": {
+    // 签名由 scripts/build_and_install_hap.sh 在构建后用 hap-sign-tool 完成，
+    // 材料见 signing/material/（./scripts/harmonyos_setup_signing.sh）。
+    // 此处不配置 signingConfigs，避免依赖 DevEco 加密口令体系。
     "signingConfigs": [],
     "products": [
       {
         "name": "default",
-        "signingConfig": "default",
         "compatibleSdkVersion": "5.0.0(12)",
         "runtimeOS": "HarmonyOS",
         "buildOption": {
